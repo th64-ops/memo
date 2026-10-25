@@ -96,9 +96,36 @@ h2{font-size:16px;margin:16px 0 8px}
 .toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#333;color:#fff;padding:8px 14px;border-radius:9px;font-size:14px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
 .toast.on{opacity:.95}
 .hide{display:none!important}
+#bn{max-width:860px;margin:0 auto;padding:0 14px}
+#bn .w{margin-top:10px;border-radius:10px;padding:9px 12px;font-size:14px;background:#fff4d6;color:#5a4300;border:1px solid #e8c766;cursor:pointer}
+#bn .w.x{background:#fde2df;color:#7a1d12;border-color:#e59a90}
 .help{font-size:14px}
 .help ol{padding-left:20px}
 .help code{background:var(--acc2);padding:0 4px;border-radius:4px;word-break:break-all}
+#pr{display:none}
+@media print{
+ @page{size:A4 landscape;margin:8mm}
+ html,body{background:#fff!important;color:#000!important}
+ body>*:not(#pr){display:none!important}
+ #pr{display:block;font-family:"Meiryo","メイリオ","MS Gothic","ＭＳ ゴシック",sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:#000}
+ .pm{break-after:page;page-break-after:always}
+ .pm:last-child{break-after:auto;page-break-after:auto}
+ .ph{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 2mm}
+ .ph b{font-size:15pt}.ph span{font-size:8pt;color:#555}
+ table.pg{width:100%;border-collapse:collapse;table-layout:fixed}
+ .pg th{font-size:9pt;border:.3mm solid #888;padding:.5mm;background:#eee}
+ .pg td{border:.3mm solid #888;vertical-align:top;padding:0}
+ .pc{overflow:hidden;padding:.6mm 1mm}
+ .pg td.ot{background:#f3f3f3}.pg td.ot b{color:#aaa}
+ .pd b{font-size:10pt}.pd span{font-size:7pt;color:#c00;margin-left:1.5mm}
+ .su .pd b,th.su{color:#c00}.sa .pd b,th.sa{color:#1a4fa0}
+ .pe{font-size:7.5pt;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .pe i{display:inline-block;width:1.4mm;height:2.6mm;margin-right:.8mm;vertical-align:-.3mm}
+ .pt{font-weight:700;margin-right:.8mm}
+ .pl table{width:100%;border-collapse:collapse;font-size:9pt}
+ .pl th,.pl td{border:.3mm solid #888;padding:1mm 1.5mm;vertical-align:top;text-align:left}
+ .pl th{background:#eee}.pl tr{break-inside:avoid}
+}
 </style>
 </head>
 <body>
@@ -107,6 +134,7 @@ h2{font-size:16px;margin:16px 0 8px}
   <span id="st">…</span>
   <button id="syncBtn" title="今すぐ同期">⟳</button>
 </header>
+<div id="bn"></div>
 <main id="main"></main>
 <nav id="nav">
   <button data-t="memo"><b>✎</b>メモ</button>
@@ -117,6 +145,7 @@ h2{font-size:16px;margin:16px 0 8px}
 </nav>
 <div id="ov"><div id="md"></div></div>
 <div class="toast" id="toast"></div>
+<div id="pr"></div>
 
 <script>
 'use strict';
@@ -142,7 +171,7 @@ function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clea
 
 const emptyDB=()=>({v:1,memos:[],events:[],todos:[],kkChecks:{},kkMeta:null});
 let db=Object.assign(emptyDB(),lsGet(LS.data)||{});
-let cfg=Object.assign({owner:'',repo:'',token:'',weekStart:0},lsGet(LS.cfg)||{});
+let cfg=Object.assign({owner:'',repo:'',token:'',weekStart:0,tokenExp:''},lsGet(LS.cfg)||{});
 let ui=Object.assign({tab:'memo',memoTag:'',todoF:'open',calView:'month'},lsGet(LS.ui)||{});
 let kkText=lsGet(LS.kk)||'';
 let pending=!!(lsGet('msb.pending'));
@@ -189,7 +218,7 @@ function api(path,{method='GET',body=null,raw=false}={}){
   return fetch(u,{method,headers:h,cache:'no-store',body:body?JSON.stringify(body):undefined});
 }
 function apiErr(r){
-  if(r.status===401)return 'トークンが無効か期限切れです（設定で再入力）';
+  if(r.status===401)return 'トークンが無効か期限切れです（GitHubで作り直して、設定で貼り替え）';
   if(r.status===403)return 'トークンに書き込み権限がありません（Contents: Read and write）';
   if(r.status===404)return 'リポジトリが見つかりません（名前・トークンの対象リポジトリを確認）';
   return 'GitHubエラー '+r.status;
@@ -276,6 +305,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>setTab(b.datase
 $('#syncBtn').onclick=()=>{if(!configured()){setTab('set');toast('先にGitHubの設定をしてください');return}sync()};
 function render(){
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===ui.tab));
+  rBanner();
   const m=$('#main');
   const keep=document.activeElement&&document.activeElement.id;
   const val=keep&&document.activeElement.value;
@@ -283,6 +313,15 @@ function render(){
   if(keep){const el=document.getElementById(keep);if(el&&el.tagName!=='BUTTON'){el.focus();if(val!=null&&el.value!==val&&el.type!=='checkbox')el.value=val}}
 }
 
+/* ---- トークン期限の警告 ---- */
+function rBanner(){
+  const el=$('#bn');el.innerHTML='';
+  if(!configured()||!cfg.tokenExp)return;
+  const n=Math.round((pYmd(cfg.tokenExp)-pYmd(today()))/864e5);
+  if(n>30)return;
+  el.innerHTML=`<div class="w ${n<=7?'x':''}">${n<0?'⚠ GitHubトークンの期限（'+jDate(cfg.tokenExp)+'）が過ぎています。':'⚠ GitHubトークンの期限まであと'+n+'日（'+jDate(cfg.tokenExp)+'）。'}作り直して「設定」で貼り替えてください（手順はREADME）。</div>`;
+  el.firstChild.onclick=()=>setTab('set');
+}
 /* ---- メモ ---- */
 function linkify(t){return esc(t).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/(^|\s)(#[^\s#]+)/g,'$1<span class="tag">$2</span>')}
 const tagsOf=t=>[...new Set((t.match(/(?:^|\s)#([^\s#]+)/g)||[]).map(s=>s.trim().slice(1)))];
@@ -349,7 +388,7 @@ function rCal(m){
   const up=[];if(ui.calView==='list'){for(let i=0;i<60;i++){const s=addDays(td,i);const e=evOn(s),t=tdOn(s).filter(x=>!x.done);if(e.length||t.length)up.push([s,e,t])}}
   m.innerHTML=`
   <div class="chips"><span class="chip ${ui.calView==='month'?'on':''}" data-v="month">月</span><span class="chip ${ui.calView==='list'?'on':''}" data-v="list">今後60日の一覧</span>
-  <span class="grow"></span><button class="btn s p" id="evNew">＋予定</button></div>
+  <span class="grow"></span><button class="btn s" id="evPr">🖨印刷</button><button class="btn s" id="evIm">Google取込</button><button class="btn s p" id="evNew">＋予定</button></div>
   ${ui.calView==='list'?`<div class="card">${up.length?up.map(([s,e,t])=>`<div style="margin:6px 0 2px;font-weight:700" class="${pYmd(s).getDay()===0||holName(s)?'over':''}">${jDate(s)} ${esc(holName(s))}</div>`+e.map(evRow).join('')+t.map(tdRow).join('')).join(''):'<p class="muted">予定はありません。</p>'}</div>`:`
   <div class="calhead"><button class="btn s" id="pm">◀</button><button class="btn s" id="tm">今月</button><div class="ttl">${y}年${mo+1}月</div><button class="btn s" id="nm">▶</button></div>
   <div class="grid">${dows.map(d=>`<div class="dow">${d}</div>`).join('')}
@@ -366,6 +405,7 @@ function rCal(m){
   </div>`}`;
   m.querySelectorAll('[data-v]').forEach(c=>c.onclick=()=>{ui.calView=c.dataset.v;lsSet(LS.ui,ui);render()});
   $('#evNew').onclick=()=>editEvent({date:S.sel});
+  $('#evPr').onclick=printDlg;$('#evIm').onclick=importDlg;
   if(ui.calView==='month'){
     $('#pm').onclick=()=>{S.month=new Date(y,mo-1,1);render()};
     $('#nm').onclick=()=>{S.month=new Date(y,mo+1,1);render()};
@@ -565,25 +605,231 @@ function rSet(m){
   <label class="muted">GitHubのユーザー名</label><input type="text" id="cO" value="${esc(cfg.owner)}" autocapitalize="off" autocomplete="off" spellcheck="false">
   <label class="muted">データ用リポジトリ名（非公開＝Private）</label><input type="text" id="cR" value="${esc(cfg.repo)}" placeholder="memo-data" autocapitalize="off" autocomplete="off" spellcheck="false">
   <label class="muted">トークン（Fine-grained personal access token）</label><input type="password" id="cK" value="${esc(cfg.token)}" autocomplete="off" placeholder="github_pat_…">
+  <label class="muted">トークンの期限（30日前から画面上部に警告を出します）</label><input type="date" id="cP" value="${esc(cfg.tokenExp||'')}">
   <div class="row" style="margin-top:10px"><button class="btn p" id="cS">保存して接続</button><button class="btn" id="cX">この端末から設定を消す</button></div>
   <p class="muted">トークンはこの端末のブラウザ内にだけ保存されます。紛失・機種変更時はGitHubでトークンを削除すれば無効になります。</p></div>
   <div class="card"><h2 style="margin-top:0">表示</h2>
   <label class="muted">週の始まり</label><select id="cW"><option value="0" ${+cfg.weekStart===0?'selected':''}>日曜</option><option value="1" ${+cfg.weekStart===1?'selected':''}>月曜</option></select></div>
   <div class="card"><h2 style="margin-top:0">バックアップ</h2>
   <div class="row"><button class="btn" id="bE">JSONで書き出す</button><label class="btn" style="cursor:pointer">JSONを読み込む（合体）<input type="file" id="bI" accept=".json" class="hide"></label></div>
-  <p class="muted">件数：メモ ${live(db.memos).length}／予定 ${live(db.events).length}／TODO ${live(db.todos).length}</p></div>
+  <p class="muted">件数：メモ ${live(db.memos).length}／予定 ${live(db.events).length}（うちGoogle取込 ${live(db.events).filter(e=>e.src==='google').length}）／TODO ${live(db.todos).length}</p>
+  <button class="btn s d" id="gDelAll">Googleから取り込んだ予定をすべて削除</button></div>
   <div class="card help"><h2 style="margin-top:0">使い方のコツ</h2><ul>
   <li>スマホはブラウザの「ホーム画面に追加」でアプリのように使えます。</li>
   <li>オフラインでも書けます。つながったときに自動で送信します（右上の表示で確認）。</li>
   <li>2台で同時に編集しても、項目ごとに新しいほうが残るように合体します。</li>
   <li>カレンダーの日付を2回タップすると、その日の予定を追加できます。</li></ul></div>`;
-  $('#cS').onclick=async()=>{cfg.owner=$('#cO').value.trim();cfg.repo=$('#cR').value.trim();cfg.token=$('#cK').value.trim();lsSet(LS.cfg,cfg);
+  $('#cS').onclick=async()=>{cfg.owner=$('#cO').value.trim();cfg.repo=$('#cR').value.trim();cfg.token=$('#cK').value.trim();cfg.tokenExp=$('#cP').value;lsSet(LS.cfg,cfg);
     if(!configured()){toast('3つとも入れてください');setStatus();return}
     await sync();if($('#st').textContent.startsWith('✓')){await pullKK();toast('接続できました');render()}};
   $('#cX').onclick=()=>{if(!confirm('この端末のGitHub設定（トークン）を消しますか？データはGitHubに残ります'))return;cfg.token='';lsSet(LS.cfg,cfg);setStatus();render()};
+  $('#cP').onchange=e=>{cfg.tokenExp=e.target.value;lsSet(LS.cfg,cfg);rBanner()};
+  $('#gDelAll').onclick=()=>{const g=live(db.events).filter(e=>e.src==='google');if(!g.length){toast('取り込んだ予定はありません');return}if(!confirm(g.length+'件を削除しますか？（アプリで追加した予定は残ります）'))return;g.forEach(e=>{e.deleted=true;touch(e)});commit();toast(g.length+'件削除')};
   $('#cW').onchange=e=>{cfg.weekStart=+e.target.value;lsSet(LS.cfg,cfg)};
   $('#bE').onclick=()=>{const b=new Blob([JSON.stringify(db,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='memo-backup-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)};
   $('#bI').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());db=mergeDB(db,Object.assign(emptyDB(),j));commit();toast('読み込みました')}catch(x){toast('読み込めませんでした')}};
+}
+
+/* ---- カレンダー印刷 ---- */
+function printDlg(){
+  const ym=S.month.getFullYear()+'-'+pad(S.month.getMonth()+1);
+  modal(`<h3>カレンダーを印刷</h3>
+  <label>開始の月</label><input type="month" id="pM" value="${ym}">
+  <label>月数</label><select id="pN">${[1,2,3,6,12].map(n=>`<option value="${n}">${n}か月</option>`).join('')}</select>
+  <label><input type="checkbox" id="pT" checked> TODO（期限の日に表示）も載せる</label>
+  <label><input type="checkbox" id="pL"> 予定の一覧ページ（メモ欄つき）も付ける</label>
+  <p class="muted">A4横・1か月1ページ。スマホは共有メニューの「プリント」から。PDFにしたいときは印刷画面で「PDFに保存」。</p>
+  <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn" data-close>閉じる</button><button class="btn p" id="pGo">印刷する</button></div>`);
+  $('#pGo').onclick=()=>{
+    const v=($('#pM').value||ym).split('-').map(Number);
+    const html=buildPrint(v[0],v[1]-1,+$('#pN').value,$('#pT').checked,$('#pL').checked);
+    closeModal();
+    $('#pr').innerHTML=html;
+    setTimeout(()=>window.print(),150);
+  };
+}
+function buildPrint(y,m0,n,withTodo,withList){
+  const ws=+cfg.weekStart||0;let out='';
+  const dows=[...Array(7)].map((_,i)=>WD[(i+ws)%7]);
+  for(let k=0;k<n;k++){
+    const first=new Date(y,m0+k,1);const yy=first.getFullYear(),mo=first.getMonth();
+    const off=(first.getDay()-ws+7)%7;const start=new Date(yy,mo,1-off);
+    const last=new Date(yy,mo+1,0).getDate();const rows=Math.ceil((off+last)/7);
+    const h=Math.floor(168/rows);
+    let t=`<section class="pm"><div class="ph"><b>${yy}年 ${mo+1}月</b><span>印刷 ${fmtTs(now()).slice(0,10)}</span></div><table class="pg"><tr>${dows.map(d=>`<th class="${d==='日'?'su':d==='土'?'sa':''}">${d}</th>`).join('')}</tr>`;
+    for(let r=0;r<rows;r++){
+      t+='<tr>';
+      for(let c=0;c<7;c++){
+        const d=new Date(start);d.setDate(start.getDate()+r*7+c);const s=ymd(d);const out_=d.getMonth()!==mo;
+        const hn=holName(s);const cls=(d.getDay()===0||hn?'su':d.getDay()===6?'sa':'')+(out_?' ot':'');
+        let body='';
+        if(!out_){
+          body=evOn(s).map(e=>`<div class="pe"><i style="background:${evColor(e)}"></i>${e.allDay||!e.start?'':`<span class="pt">${esc(e.start)}</span>`}${esc(e.title)}</div>`).join('');
+          if(withTodo)body+=tdOn(s).filter(x=>!x.done).map(x=>`<div class="pe">☐ ${esc(x.title)}</div>`).join('');
+        }
+        t+=`<td class="${cls}"><div class="pc" style="height:${h}mm"><div class="pd"><b>${d.getDate()}</b>${hn&&!out_?`<span>${esc(hn)}</span>`:''}</div>${body}</div></td>`;
+      }
+      t+='</tr>';
+    }
+    t+='</table></section>';
+    out+=t;
+  }
+  if(withList){
+    const from=y+'-'+pad(m0+1)+'-01';const to=ymd(new Date(y,m0+n,0));
+    let rowsH='';
+    for(let s=from;s<=to;s=addDays(s,1)){
+      const e=evOn(s).filter(x=>x.date===s||s===from);
+      for(const x of e)rowsH+=`<tr><td>${jDate(s)}</td><td>${esc(evTime(x))}${x.endDate&&x.endDate!==x.date?'〜'+jDate(x.endDate):''}</td><td>${esc(x.title)}</td><td>${esc((x.note||'').split('\n')[0].slice(0,60))}</td><td></td></tr>`;
+    }
+    out+=`<section class="pm pl"><div class="ph"><b>予定一覧 ${jDate(from)}〜${jDate(to)}</b></div><table><tr><th style="width:22mm">日付</th><th style="width:30mm">時刻</th><th>予定</th><th>メモ</th><th style="width:60mm">書き込み欄</th></tr>${rowsH||'<tr><td colspan="5">予定はありません</td></tr>'}</table></section>`;
+  }
+  return out;
+}
+
+/* ---- Googleカレンダー取り込み（.ics／エクスポートzip） ---- */
+async function unzip(buf){
+  const dv=new DataView(buf);let e=buf.byteLength-22;
+  while(e>=0&&dv.getUint32(e,true)!==0x06054b50)e--;
+  if(e<0)throw new Error('zipが読めません');
+  const n=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true);const out=[];
+  for(let i=0;i<n;i++){
+    const method=dv.getUint16(p+10,true),cs=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),xl=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),lo=dv.getUint32(p+42,true);
+    const name=new TextDecoder().decode(new Uint8Array(buf,p+46,nl));p+=46+nl+xl+cl;
+    if(!/\.ics$/i.test(name))continue;
+    const lnl=dv.getUint16(lo+26,true),lxl=dv.getUint16(lo+28,true);
+    const data=new Uint8Array(buf,lo+30+lnl+lxl,cs);let bytes;
+    if(method===0)bytes=data;
+    else if(method===8){
+      if(!window.DecompressionStream)throw new Error('このブラウザはzipを開けません。PCで解凍して中の.icsを選んでください');
+      bytes=new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+    }else continue;
+    out.push({name:name.split('/').pop(),text:new TextDecoder().decode(bytes)});
+  }
+  return out;
+}
+function icsUnesc(v){return v.replace(/\\n/gi,'\n').replace(/\\([,;\\])/g,'$1')}
+function icsDT(v,params){
+  v=(v||'').trim();
+  if(/VALUE=DATE(?!-)/i.test(params||'')||/^\d{8}$/.test(v))return {date:v.slice(0,4)+'-'+v.slice(4,6)+'-'+v.slice(6,8),allDay:true};
+  const m=v.match(/^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)(Z?)$/);if(!m)return null;
+  if(m[7]){const d=new Date(Date.UTC(+m[1],m[2]-1,+m[3],+m[4],+m[5],+m[6]));return {date:ymd(d),time:pad(d.getHours())+':'+pad(d.getMinutes()),allDay:false}}
+  return {date:m[1]+'-'+m[2]+'-'+m[3],time:m[4]+':'+m[5],allDay:false};
+}
+function parseICS(text){
+  const L=text.replace(/\r\n?/g,'\n').replace(/\n[ \t]/g,'').split('\n');
+  let name='',cur=null,depth=0;const evs=[];
+  for(const l of L){
+    if(l==='BEGIN:VEVENT'){cur={ex:new Set()};depth=0;continue}
+    if(l==='END:VEVENT'){if(cur)evs.push(cur);cur=null;continue}
+    if(cur&&/^BEGIN:/.test(l)){depth++;continue}
+    if(cur&&/^END:/.test(l)){depth--;continue}
+    const m=l.match(/^([A-Za-z0-9-]+)((?:;[^:]*)?):(.*)$/);if(!m)continue;
+    const k=m[1].toUpperCase(),pr=m[2],v=m[3];
+    if(!cur){if(k==='X-WR-CALNAME')name=icsUnesc(v);continue}
+    if(depth>0)continue; // VALARM など
+    if(k==='UID')cur.uid=v;
+    else if(k==='SUMMARY')cur.title=icsUnesc(v);
+    else if(k==='DESCRIPTION')cur.desc=icsUnesc(v);
+    else if(k==='LOCATION')cur.loc=icsUnesc(v);
+    else if(k==='STATUS')cur.status=v.toUpperCase();
+    else if(k==='DTSTART')cur.s=icsDT(v,pr);
+    else if(k==='DTEND')cur.e=icsDT(v,pr);
+    else if(k==='RRULE')cur.rr=Object.fromEntries(v.split(';').map(x=>x.split('=')));
+    else if(k==='EXDATE')v.split(',').forEach(x=>{const d=icsDT(x,pr);if(d)cur.ex.add(d.date)});
+    else if(k==='RECURRENCE-ID'){const d=icsDT(v,pr);if(d)cur.rid=d.date}
+  }
+  return {name,evs:evs.filter(e=>e.s&&e.status!=='CANCELLED'||e.rid)};
+}
+const DOWC=['SU','MO','TU','WE','TH','FR','SA'];
+function expandICS(cal,from,to){
+  const out=[];const over=new Map();
+  for(const e of cal.evs)if(e.rid){if(!over.has(e.uid))over.set(e.uid,new Set());over.get(e.uid).add(e.rid)}
+  const dayDiff=(a,b)=>Math.round((pYmd(b)-pYmd(a))/864e5);
+  for(const e of cal.evs){
+    if(!e.s)continue;
+    if(e.rid&&e.status==='CANCELLED')continue;
+    let endDate='',span=0;
+    if(e.e){const ed=e.s.allDay?addDays(e.e.date,-1):e.e.date;const midnight=!e.s.allDay&&e.e.time==='00:00'&&ed===addDays(e.s.date,1);if(ed>e.s.date&&!midnight){endDate=ed;span=dayDiff(e.s.date,ed)}}
+    const base={title:e.title||'（無題）',allDay:e.s.allDay,start:e.s.allDay?'':e.s.time,end:e.s.allDay||!e.e?'':e.e.time,
+      note:[e.loc?'場所：'+e.loc:'',e.desc||''].filter(Boolean).join('\n').slice(0,2000),uid:e.uid||hkey(JSON.stringify(e.s)+e.title)};
+    const push=d=>{const ed=span?addDays(d,span):'';if((ed||d)<from||d>to)return;out.push(Object.assign({},base,{date:d,endDate:ed}))};
+    if(!e.rr||e.rid){push(e.s.date);continue}
+    const r=e.rr,iv=+(r.INTERVAL||1),cnt=r.COUNT?+r.COUNT:Infinity;
+    const until=r.UNTIL?(icsDT(r.UNTIL,'')||{}).date||'9999':'9999';
+    const skip=new Set([...e.ex,...(over.get(e.uid)||[])]);
+    let n=0,guard=0;const s0=pYmd(e.s.date);
+    const emit=d=>{if(d<e.s.date)return true;if(d>until||n>=cnt||d>to)return false;n++;if(!skip.has(d))push(d);return true};
+    const byday=(r.BYDAY||'').split(',').filter(Boolean);
+    if(r.FREQ==='DAILY'){for(let d=e.s.date;guard++<20000;d=addDays(d,iv)){if(!emit(d))break}}
+    else if(r.FREQ==='WEEKLY'){
+      const wd=byday.length?byday.map(x=>DOWC.indexOf(x.slice(-2))).sort((a,b)=>a-b):[s0.getDay()];
+      let wk=addDays(e.s.date,-s0.getDay());let go=true;
+      while(go&&guard++<5000){for(const w of wd){if(!emit(addDays(wk,w))){go=false;break}}wk=addDays(wk,7*iv)}
+    }else if(r.FREQ==='MONTHLY'||r.FREQ==='YEARLY'){
+      const step=r.FREQ==='YEARLY'?12*iv:iv;
+      for(let k=0;guard++<2000;k+=step){
+        const y=s0.getFullYear(),mo=s0.getMonth()+k;const fm=new Date(y,mo,1);let d=null;
+        if(byday.length&&r.FREQ==='MONTHLY'){
+          const mm=byday[0].match(/^([+-]?\d+)?([A-Z]{2})$/)||[0,'1',DOWC[s0.getDay()]];const w=DOWC.indexOf(mm[2]);const nth=+(mm[1]||1);
+          if(nth>0){const f=1+(w-fm.getDay()+7)%7;const dd=f+7*(nth-1);if(dd<=new Date(y,mo+1,0).getDate())d=ymd(new Date(y,mo,dd))}
+          else{const ld=new Date(y,mo+1,0);const dd=ld.getDate()-((ld.getDay()-w+7)%7)+7*(nth+1);d=ymd(new Date(y,mo,dd))}
+        }else{const dd=+(r.BYMONTHDAY||s0.getDate());if(dd<=new Date(y,mo+1,0).getDate())d=ymd(new Date(y,mo,dd))}
+        if(!d){if(ymd(fm)>to)break;continue}
+        if(!emit(d))break;
+      }
+    }else push(e.s.date);
+  }
+  return out;
+}
+function importDlg(){
+  let cals=[];
+  const td=today();
+  const draw=()=>{
+    modal(`<h3>Googleカレンダーから取り込む</h3>
+    <p class="muted" style="margin:0">PCのブラウザでGoogleカレンダー →（右上の歯車）設定 →「インポート／エクスポート」→「エクスポート」でzipをダウンロード → ここで選ぶ（zipのままでOK）。</p>
+    <div class="row" style="margin-top:10px"><label class="btn p" style="cursor:pointer">ファイルを選ぶ（.zip／.ics）<input type="file" id="iF" accept=".zip,.ics,text/calendar,application/zip" class="hide"></label></div>
+    <label>または .ics の中身を貼り付け</label><textarea id="iP" placeholder="BEGIN:VCALENDAR …"></textarea>
+    <div class="row" style="margin-top:6px"><span class="grow"></span><button class="btn s" id="iPB">貼り付けた内容を読む</button></div>
+    ${cals.length?`<h2>取り込むカレンダー</h2>
+    ${cals.map((c,i)=>`<div class="card" style="padding:8px 10px"><label style="margin:0;color:var(--ink)"><input type="checkbox" data-ci="${i}" ${c.on?'checked':''}> <b>${esc(c.name)}</b> <span class="muted">（${c.evs.filter(e=>!e.rid).length}件${c.evs.some(e=>e.rr)?'・繰り返しあり':''}）</span></label>
+      <select data-cc="${i}" style="margin-top:6px">${CATS.map(x=>`<option value="${x[0]}" ${c.cat===x[0]?'selected':''}>分類：${x[1]}</option>`).join('')}</select></div>`).join('')}
+    <div class="row"><div class="grow"><label>この日から</label><input type="date" id="iA" value="${esc(S.iA||addDays(td,-30))}"></div><div class="grow"><label>この日まで</label><input type="date" id="iB" value="${esc(S.iB||addDays(td,365))}"></div></div>
+    <p class="muted">繰り返しの予定は、この期間の分だけ1件ずつ作ります。同じファイルをもう一度取り込むと、重複せずに上書きされます（アプリで直した内容もGoogle側の内容に戻ります）。</p>
+    <div class="row" style="margin-top:10px"><span class="grow"></span><button class="btn" data-close>閉じる</button><button class="btn p" id="iGo">取り込む</button></div>`:'<div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn" data-close>閉じる</button></div>'}`);
+    const load=async files=>{
+      try{
+        const got=[];
+        for(const f of files){
+          if(f.zip){for(const z of await unzip(f.buf))got.push(z)}else got.push(f);
+        }
+        cals=got.map(g=>{const p=parseICS(g.text);const nm=p.name||g.name.replace(/\.ics$/i,'').replace(/_[^_]*@.*$/,'');
+          return {name:nm,evs:p.evs,on:!/祝日|holiday/i.test(nm),cat:/祝日|holiday/i.test(nm)?'etc':'work'}}).filter(c=>c.evs.length);
+        if(!cals.length)toast('予定が見つかりませんでした');
+        draw();
+      }catch(x){toast(x.message||'読み込めませんでした')}
+    };
+    $('#iF').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;const buf=await f.arrayBuffer();const b=new Uint8Array(buf);
+      if(b[0]===0x50&&b[1]===0x4b)load([{zip:true,buf}]);else load([{name:f.name,text:new TextDecoder().decode(b)}])};
+    $('#iPB').onclick=()=>{const t=$('#iP').value;if(!/BEGIN:VEVENT/.test(t)){toast('BEGIN:VEVENT を含む内容を貼ってください');return}load([{name:'貼り付け',text:t}])};
+    $('#md').querySelectorAll('[data-ci]').forEach(c=>c.onchange=()=>{cals[+c.dataset.ci].on=c.checked});
+    $('#md').querySelectorAll('[data-cc]').forEach(c=>c.onchange=()=>{cals[+c.dataset.cc].cat=c.value});
+    const go=$('#iGo');
+    if(go)go.onclick=()=>{
+      const A=$('#iA').value,B=$('#iB').value;S.iA=A;S.iB=B;
+      if(!A||!B||A>B){toast('期間を確認してください');return}
+      let add=0,upd=0;const t=now();
+      for(const c of cals.filter(c=>c.on)){
+        for(const x of expandICS(c,A,B)){
+          const id='g'+hkey(x.uid+'|'+x.date)+hkey(x.date+'|'+x.uid).slice(1);
+          const rec={id,title:x.title,date:x.date,endDate:x.endDate,allDay:x.allDay,start:x.start,end:x.end,cat:c.cat,note:x.note,src:'google',cal:c.name};
+          const old=db.events.find(e=>e.id===id);
+          if(old){Object.assign(old,rec,{deleted:false});touch(old);upd++}else{rec.createdAt=t;db.events.push(touch(rec));add++}
+        }
+      }
+      closeModal();commit();toast(`取り込みました（新規${add}件・更新${upd}件）`);
+    };
+  };
+  draw();
 }
 
 /* ---- モーダル ---- */
