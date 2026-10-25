@@ -160,7 +160,7 @@ details.log summary{cursor:pointer;font-weight:700}
   <button data-t="memo"><b>✎</b>メモ</button>
   <button data-t="cal"><b>▦</b>予定</button>
   <button data-t="todo"><b>☑</b>TODO</button>
-  <button data-t="kk"><b>≡</b>確認事項</button>
+  <button data-t="kk"><b>≡</b>確認・進捗</button>
   <button data-t="set"><b>⚙</b>設定</button>
 </nav>
 <div id="ov"><div id="md"></div></div>
@@ -170,7 +170,7 @@ details.log summary{cursor:pointer;font-weight:700}
 <script>
 'use strict';
 /* ===== 基本 ===== */
-const LS={data:'msb.data',cfg:'msb.cfg',kk:'msb.kk',ui:'msb.ui'};
+const LS={data:'msb.data',cfg:'msb.cfg',kk:'msb.kk',kk2:'msb.kk2',ui:'msb.ui'};
 const CATS=[['work','仕事','#2c5aa0'],['study','学会・研究','#7b4fa0'],['home','家庭','#c0392b'],['me','個人','#2f8f5b'],['etc','その他','#7a7a7a']];
 const CATMAP=Object.fromEntries(CATS.map(c=>[c[0],c]));
 const $=s=>document.querySelector(s);
@@ -189,13 +189,14 @@ const jDate=s=>{if(!s)return'';const d=pYmd(s);return (d.getMonth()+1)+'/'+d.get
 const fmtTs=t=>{const d=new Date(t);return d.getFullYear()+'/'+pad(d.getMonth()+1)+'/'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())};
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),2200)}
 
-const emptyDB=()=>({v:1,memos:[],events:[],todos:[],kkChecks:{},kkLog:[],kkMeta:null});
+const emptyDB=()=>({v:1,memos:[],events:[],todos:[],kkChecks:{},kkLog:[],kkMeta:null,kkMeta2:null});
 let db=Object.assign(emptyDB(),lsGet(LS.data)||{});
 let cfg=Object.assign({owner:'',repo:'',token:'',weekStart:0,tokenExp:''},lsGet(LS.cfg)||{});
 let ui=Object.assign({tab:'memo',memoTag:'',todoF:'open',calView:'month'},lsGet(LS.ui)||{});
 let kkText=lsGet(LS.kk)||'';
+let kkText2=lsGet(LS.kk2)||''; // 進捗（参照のみ）
 let pending=!!(lsGet('msb.pending'));
-const S={month:null,sel:today(),q:'',kq:''};
+const S={month:null,sel:today(),q:'',kq:'',kd:'kakunin'};
 {const d=new Date();S.month=new Date(d.getFullYear(),d.getMonth(),1)}
 
 const live=a=>a.filter(x=>!x.deleted);
@@ -275,6 +276,7 @@ function mergeDB(a,b){
   for(const key of new Set([...Object.keys(ka),...Object.keys(kb)])){const x=ka[key],y=kb[key];ck[key]=!y||(x&&x.t>=y.t)?x:y}
   out.kkChecks=Object.fromEntries(Object.keys(ck).sort().map(k=>[k,ck[k]]));
   const ma=a.kkMeta,mb=b.kkMeta;out.kkMeta=!mb||(ma&&ma.at>=mb.at)?ma||null:mb;
+  const na=a.kkMeta2,nb=b.kkMeta2;out.kkMeta2=!nb||(na&&na.at>=nb.at)?na||null:nb;
   return out;
 }
 const canon=d=>JSON.stringify(mergeDB(d,emptyDB()));
@@ -300,6 +302,7 @@ async function sync(){
     if(!ok)throw new Error('保存が競合しました。もう一度⟳を押してください');
     pending=false;lsSet('msb.pending',false);
     if(db.kkMeta&&db.kkMeta.at!==(lsGet('msb.kkAt')||0))await pullKK();
+    if(db.kkMeta2&&db.kkMeta2.at!==(lsGet('msb.kkAt2')||0))await pullKK2();
     setStatus('ok');render();
   }catch(e){
     setStatus(navigator.onLine?'err':'off',e.message);
@@ -308,6 +311,10 @@ async function sync(){
 async function pullKK(){
   if(!configured())return;
   try{const f=await getFile('kakunin.md');if(f.text!==null){kkText=f.text;lsSet(LS.kk,kkText);lsSet('msb.kkAt',db.kkMeta?db.kkMeta.at:0)}}catch(e){}
+}
+async function pullKK2(){
+  if(!configured())return;
+  try{const f=await getFile('shinchoku.md');if(f.text!==null){kkText2=f.text;lsSet(LS.kk2,kkText2);lsSet('msb.kkAt2',db.kkMeta2?db.kkMeta2.at:0)}}catch(e){}
 }
 let lastSync=0;
 function setStatus(s,msg){
@@ -588,13 +595,13 @@ function mdRender(src,q){
   closeUl();return {h,secs,keys};
 }
 let kkKeys=[];
-function rKK(m){
+function rKK1(m){
   const meta=db.kkMeta;
   const r=kkText?mdRender(kkText,S.kq):{h:'',secs:[],keys:[]};
   kkKeys=r.keys;
   const nChk=r.keys.filter(([k])=>hasK(k)).length;
   const logs=live(db.kkLog).sort((a,b)=>(b.at||0)-(a.at||0));
-  m.innerHTML=`
+  m.innerHTML=kdChips()+`
   <div class="card"><div class="row"><div class="grow"><b>00_確認事項_行動別.md</b><div class="muted">${meta?'アップロード：'+fmtTs(meta.at)+(meta.from?'（'+esc(meta.from)+'）':''):'まだアップロードされていません'}</div></div>
   <label class="btn p" style="cursor:pointer">アップロード<input type="file" id="kkF" accept=".md,.txt,text/markdown,text/plain" class="hide"></label></div>
   <p class="muted" style="margin:6px 0 0">「済」の印と💬（どう対処したか）は全端末で共有されます。Claudeに伝えるときは下のボタンでコピーして貼り付け。</p>
@@ -608,6 +615,7 @@ function rKK(m){
   $('#kkF').onchange=async ev=>{
     const f=ev.target.files[0];if(!f)return;
     const txt=await f.text();
+    if(/進捗/.test(f.name)&&!confirm('「'+f.name+'」は進捗のファイルのようです。確認事項として読み込むと、済の印が消えた項目は「対処の記録」に移ります。続けますか？'))return;
     if(!configured()){archiveKK(txt);kkText=txt;lsSet(LS.kk,kkText);db.kkMeta={at:now(),name:f.name,from:devName()};saveLocal();render();toast('この端末に保存（GitHub未設定）');return}
     setStatus('sync');
     try{
@@ -630,11 +638,66 @@ function rKK(m){
   const lz=$('#lgClr');if(lz)lz.onclick=()=>{if(!confirm('対処の記録をすべて消しますか？'))return;db.kkLog.forEach(l=>{if(!l.deleted){l.deleted=true;touch(l)}});commit()};
   m.querySelectorAll('[data-lg]').forEach(b=>b.onclick=()=>{const l=db.kkLog.find(x=>x.id===b.dataset.lg);if(l){l.deleted=true;touch(l);commit()}});
   m.querySelectorAll('[data-kc]').forEach(b=>b.onclick=()=>kkComment(b.dataset.kc));
+  bindKdChips(m);
   const q=$('#kQ');if(q)q.oninput=e=>{S.kq=e.target.value;rKK(m);const k=$('#kQ');k.focus();k.setSelectionRange(k.value.length,k.value.length)};
   m.querySelectorAll('[data-j]').forEach(c=>c.onclick=()=>{const t=document.getElementById(c.dataset.j);if(t)window.scrollTo({top:t.getBoundingClientRect().top+scrollY-60,behavior:'smooth'})});
   const kmap=Object.fromEntries(kkKeys);
   m.querySelectorAll('[data-kk]').forEach(c=>c.onchange=()=>{kSet(c.dataset.kk,{v:c.checked},kmap[c.dataset.kk]);commitQuiet();const p=c.closest('tr,li');if(p)p.classList.toggle('dn',c.checked);
     const b=$('#kkCp');const n=kkKeys.filter(([k])=>hasK(k)).length;b.textContent='済・コメントをコピー（'+n+'件）';b.disabled=!n});
+}
+
+/* ---- 進捗（プロジェクト別）：参照のみ。済の印・コメントはつけない（確認事項と干渉させないため） ---- */
+function kdChips(){const t=[['kakunin','確認事項（行動別）'],['shinchoku','進捗（プロジェクト別）・参照のみ']];
+  return '<div class="chips">'+t.map(([k,l])=>`<span class="chip" data-kd="${k}" style="${k===S.kd?'background:var(--acc);color:#fff':''}">${l}</span>`).join('')+'</div>'}
+function bindKdChips(m){m.querySelectorAll('[data-kd]').forEach(c=>c.onclick=()=>{if(S.kd===c.dataset.kd)return;S.kd=c.dataset.kd;S.kq='';rKK(m);window.scrollTo(0,0)})}
+function rKK(m){(S.kd==='shinchoku'?rKK2:rKK1)(m)}
+function mdView(src,q){
+  const L=src.replace(/\r\n?/g,'\n').split('\n');let h='',i=0,inUl=false,secs=[];
+  const closeUl=()=>{if(inUl){h+='</ul>';inUl=false}};
+  const hit=t=>!q||t.toLowerCase().includes(q.toLowerCase());
+  while(i<L.length){
+    let l=L[i];
+    if(/^\s*\|/.test(l)){
+      closeUl();const rows=[];while(i<L.length&&/^\s*\|/.test(L[i])){rows.push(L[i]);i++}
+      const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+      const head=cells(rows[0]);const body=rows.slice(1).filter(r=>!/^\s*\|?\s*:?-{2,}/.test(r)).map(cells);
+      const shown=body.filter(r=>hit(r.join(' ')));if(!shown.length)continue;
+      h+='<div class="tw"><table><tr>'+head.map(c=>'<th>'+inl(c)+'</th>').join('')+'</tr>';
+      for(const r of shown)h+='<tr>'+r.map((c,ci)=>`<td data-l="${esc(head[ci]||'')}">`+inl(c,q)+'</td>').join('')+'</tr>';
+      h+='</table></div>';continue;
+    }
+    let mm;
+    if(/^\s*-{3,}\s*$/.test(l)){closeUl();h+='<hr style="border:0;border-top:1px solid var(--line);margin:14px 0">';i++;continue}
+    if((mm=l.match(/^(#{1,4})\s+(.*)/))){closeUl();const lv=Math.min(mm[1].length,3);if(lv===2)secs.push(mm[2]);
+      h+=`<h${lv} ${lv===2?`id="p${secs.length}"`:''}>${inl(mm[2])}</h${lv}>`;i++;continue}
+    if((mm=l.match(/^\s*[-*]\s+(.*)/))){const t=mm[1];i++;if(!hit(t))continue;if(!inUl){h+='<ul>';inUl=true}h+='<li>'+inl(t,q)+'</li>';continue}
+    closeUl();if(l.trim()&&hit(l))h+='<p>'+inl(l,q)+'</p>';i++;
+  }
+  closeUl();return {h,secs};
+}
+function rKK2(m){
+  const meta=db.kkMeta2;const r=kkText2?mdView(kkText2,S.kq):{h:'',secs:[]};
+  m.innerHTML=kdChips()+`
+  <div class="card"><div class="row"><div class="grow"><b>00_進捗_プロジェクト別.md</b><div class="muted">${meta?'アップロード：'+fmtTs(meta.at)+(meta.from?'（'+esc(meta.from)+'）':''):'まだアップロードされていません'}</div></div>
+  <label class="btn p" style="cursor:pointer">アップロード<input type="file" id="kpF" accept=".md,.txt,text/markdown,text/plain" class="hide"></label></div>
+  <p class="muted" style="margin:6px 0 0">🔒 参照のみ（済の印・コメントはつけられません）。進捗はClaudeが確認事項の対処に合わせて書き直します。書き直したら、ここにもう一度アップロード。</p>
+  <div class="row" style="margin-top:6px"><button class="btn s" id="kpRl">再読み込み</button></div></div>
+  ${kkText2?`<input type="search" id="kQ" placeholder="進捗を検索（例：01、BMJ）" value="${esc(S.kq)}">
+  <div class="chips">${r.secs.map((s,i)=>`<span class="chip" data-j="p${i+1}">${esc(s.replace(/[（(].*$/,'').replace(/[`｜].*$/,'').slice(0,14))}</span>`).join('')}</div>
+  <div class="kk card">${r.h||'<p class="muted">該当なし</p>'}</div>`:''}`;
+  $('#kpF').onchange=async ev=>{
+    const f=ev.target.files[0];if(!f)return;const txt=await f.text();
+    if(/確認事項/.test(f.name)&&!confirm('「'+f.name+'」は確認事項のファイルのようです。進捗として読み込みますか？'))return;
+    const done=()=>{kkText2=txt;lsSet(LS.kk2,txt);db.kkMeta2={at:now(),name:f.name,from:devName()};lsSet('msb.kkAt2',db.kkMeta2.at)};
+    if(!configured()){done();saveLocal();render();toast('この端末に保存（GitHub未設定）');return}
+    setStatus('sync');
+    try{for(let i=0;i<3;i++){const g=await getFile('shinchoku.md');const p=await putFile('shinchoku.md',txt,g.sha,'進捗を更新 '+fmtTs(now()));if(p.ok)break;if(p.status!==409&&p.status!==422)throw new Error(apiErr(p));}
+      done();commit();toast('アップロードしました')}catch(e){setStatus('err',e.message)}
+  };
+  $('#kpRl').onclick=async()=>{await pullKK2();render();toast('読み込みました')};
+  bindKdChips(m);
+  const q=$('#kQ');if(q)q.oninput=e=>{S.kq=e.target.value;rKK2(m);const k=$('#kQ');k.focus();k.setSelectionRange(k.value.length,k.value.length)};
+  m.querySelectorAll('[data-j]').forEach(c=>c.onclick=()=>{const t=document.getElementById(c.dataset.j);if(t)window.scrollTo({top:t.getBoundingClientRect().top+scrollY-60,behavior:'smooth'})});
 }
 // ファイルから消えた項目の「済」・コメントを「対処の記録」へ移す
 function archiveKK(txt){
