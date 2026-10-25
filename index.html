@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="メモ帖">
+<meta name="theme-color" content="#2f5d50">
+<meta name="robots" content="noindex,nofollow">
+<title>メモ・スケジュール帖</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#222;--sub:#6b6b6b;--line:#e2e0d9;--acc:#2f5d50;--acc2:#e6efeb;--red:#c0392b;--blue:#2c5aa0;--warn:#b7791f;--shadow:0 1px 2px rgba(0,0,0,.06)}
+@media (prefers-color-scheme:dark){:root{--bg:#161817;--card:#212423;--ink:#e8e8e6;--sub:#9a9d9b;--line:#363b39;--acc:#7fbfa8;--acc2:#25332e;--red:#e57368;--blue:#86aae6;--warn:#e0b25a;--shadow:none}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Meiryo","メイリオ","MS Gothic","ＭＳ ゴシック","Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;font-size:16px;line-height:1.55;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+header{position:sticky;top:0;z-index:20;background:var(--acc);color:#fff;padding:calc(env(safe-area-inset-top) + 8px) 14px 8px;display:flex;align-items:center;gap:10px}
+@media (prefers-color-scheme:dark){header{background:#1f3a32}}
+header h1{font-size:17px;margin:0;flex:1;font-weight:700;letter-spacing:.02em}
+#st{font-size:12px;opacity:.95;white-space:nowrap}
+#syncBtn{background:rgba(255,255,255,.18);border:0;color:#fff;border-radius:8px;padding:5px 10px;cursor:pointer}
+main{max-width:860px;margin:0 auto;padding:12px 14px calc(84px + env(safe-area-inset-bottom))}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:20;background:var(--card);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;border:0;background:none;padding:8px 2px 9px;font-size:12px;color:var(--sub);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px}
+nav button b{font-size:19px;font-weight:400;line-height:1.2}
+nav button.on{color:var(--acc);font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 10px;box-shadow:var(--shadow)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+input[type=text],input[type=search],input[type=password],input[type=date],input[type=time],select,textarea{width:100%;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:9px 10px;font-size:16px}
+textarea{resize:vertical;min-height:70px}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:8px 12px;cursor:pointer;white-space:nowrap}
+.btn.p{background:var(--acc);border-color:var(--acc);color:#fff}
+@media (prefers-color-scheme:dark){.btn.p{color:#10201b}}
+.btn.s{padding:4px 9px;font-size:13px}
+.btn.d{color:var(--red)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:3px 11px;font-size:13px;cursor:pointer}
+.chip.on{background:var(--acc2);border-color:var(--acc);color:var(--acc);font-weight:700}
+.muted{color:var(--sub);font-size:13px}
+.memo-t{white-space:pre-wrap;word-break:break-word}
+.memo-t a{color:var(--blue)}
+.tag{color:var(--acc);font-weight:700}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.pin{border-left:4px solid var(--warn)}
+h2{font-size:16px;margin:16px 0 8px}
+/* calendar */
+.calhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.calhead .ttl{flex:1;text-align:center;font-weight:700;font-size:17px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.dow{text-align:center;font-size:12px;color:var(--sub);padding:2px 0}
+.day{background:var(--card);border:1px solid var(--line);border-radius:7px;min-height:66px;padding:2px 3px;cursor:pointer;overflow:hidden;position:relative}
+.day.out{opacity:.38}
+.day.sel{outline:2px solid var(--acc);outline-offset:-1px}
+.day.today .dn{background:var(--acc);color:#fff;border-radius:999px;padding:0 5px}
+.dn{font-size:12px;font-weight:700;display:inline-block}
+.sun .dn,.hol .dn{color:var(--red)}.sat .dn{color:var(--blue)}
+.day.today.sun .dn,.day.today.hol .dn,.day.today.sat .dn{color:#fff}
+.ev{font-size:10.5px;line-height:1.35;border-radius:3px;padding:0 3px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff}
+.more{font-size:10px;color:var(--sub)}
+.hn{font-size:9.5px;color:var(--red);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+.tdc{position:absolute;right:3px;top:2px;font-size:10px;color:var(--acc);font-weight:700}
+.item{display:flex;gap:10px;align-items:flex-start;padding:9px 2px;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item .bar{width:4px;align-self:stretch;border-radius:2px;flex:none}
+.item .tm{font-size:13px;color:var(--sub);min-width:84px}
+.item input[type=checkbox]{width:20px;height:20px;margin-top:2px;flex:none;accent-color:var(--acc)}
+.done-t{text-decoration:line-through;color:var(--sub)}
+.over{color:var(--red);font-weight:700}
+.link{color:var(--blue);cursor:pointer;font-size:13px}
+/* modal */
+#ov{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:50;display:none;align-items:flex-end;justify-content:center}
+#ov.on{display:flex}
+#md{background:var(--bg);width:100%;max-width:620px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding:14px 14px calc(16px + env(safe-area-inset-bottom))}
+@media (min-width:700px){#ov{align-items:center}#md{border-radius:16px}}
+#md label{display:block;font-size:13px;color:var(--sub);margin:10px 0 3px}
+#md h3{margin:2px 0 6px;font-size:17px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:4px}
+/* kakunin */
+.kk h1{font-size:17px;margin:4px 0 8px}
+.kk h2{font-size:16px;border-left:4px solid var(--acc);padding-left:8px;margin:20px 0 8px}
+.kk h3{font-size:15px;margin:14px 0 6px}
+.kk ul{padding-left:20px;margin:6px 0}
+.kk li{margin:3px 0}
+.kk code{background:var(--acc2);border-radius:4px;padding:0 4px;font-size:.9em;word-break:break-all}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:6px 0 10px}
+.kk table{border-collapse:collapse;width:100%;font-size:14px;background:var(--card)}
+.kk th,.kk td{border:1px solid var(--line);padding:6px 7px;vertical-align:top;text-align:left}
+.kk th{background:var(--acc2);white-space:nowrap}
+.kk td.ck{width:34px;text-align:center}
+.kk tr.dn td:not(.ck),.kk li.dn .lt{text-decoration:line-through;color:var(--sub)}
+.kk li.cb{list-style:none;margin-left:-20px;display:flex;gap:8px;align-items:flex-start}
+.kk input[type=checkbox]{width:19px;height:19px;accent-color:var(--acc)}
+.kk mark{background:#ffe58a;color:#222}
+.toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#333;color:#fff;padding:8px 14px;border-radius:9px;font-size:14px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+.toast.on{opacity:.95}
+.hide{display:none!important}
+.help{font-size:14px}
+.help ol{padding-left:20px}
+.help code{background:var(--acc2);padding:0 4px;border-radius:4px;word-break:break-all}
+</style>
+</head>
+<body>
+<header>
+  <h1>メモ・スケジュール帖</h1>
+  <span id="st">…</span>
+  <button id="syncBtn" title="今すぐ同期">⟳</button>
+</header>
+<main id="main"></main>
+<nav id="nav">
+  <button data-t="memo"><b>✎</b>メモ</button>
+  <button data-t="cal"><b>▦</b>予定</button>
+  <button data-t="todo"><b>☑</b>TODO</button>
+  <button data-t="kk"><b>≡</b>確認事項</button>
+  <button data-t="set"><b>⚙</b>設定</button>
+</nav>
+<div id="ov"><div id="md"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ===== 基本 ===== */
+const LS={data:'msb.data',cfg:'msb.cfg',kk:'msb.kk',ui:'msb.ui'};
+const CATS=[['work','仕事','#2c5aa0'],['study','学会・研究','#7b4fa0'],['home','家庭','#c0392b'],['me','個人','#2f8f5b'],['etc','その他','#7a7a7a']];
+const CATMAP=Object.fromEntries(CATS.map(c=>[c[0],c]));
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const now=()=>Date.now();
+const uid=()=>now().toString(36)+Math.random().toString(36).slice(2,8);
+function lsGet(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const pYmd=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const today=()=>ymd(new Date());
+const addDays=(s,n)=>{const d=pYmd(s);d.setDate(d.getDate()+n);return ymd(d)};
+const WD='日月火水木金土';
+const jDate=s=>{if(!s)return'';const d=pYmd(s);return (d.getMonth()+1)+'/'+d.getDate()+'('+WD[d.getDay()]+')'};
+const fmtTs=t=>{const d=new Date(t);return d.getFullYear()+'/'+pad(d.getMonth()+1)+'/'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())};
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),2200)}
+
+const emptyDB=()=>({v:1,memos:[],events:[],todos:[],kkChecks:{},kkMeta:null});
+let db=Object.assign(emptyDB(),lsGet(LS.data)||{});
+let cfg=Object.assign({owner:'',repo:'',token:'',weekStart:0},lsGet(LS.cfg)||{});
+let ui=Object.assign({tab:'memo',memoTag:'',todoF:'open',calView:'month'},lsGet(LS.ui)||{});
+let kkText=lsGet(LS.kk)||'';
+let pending=!!(lsGet('msb.pending'));
+const S={month:null,sel:today(),q:'',kq:''};
+{const d=new Date();S.month=new Date(d.getFullYear(),d.getMonth(),1)}
+
+const live=a=>a.filter(x=>!x.deleted);
+function saveLocal(){lsSet(LS.data,db)}
+function touch(o){o.updatedAt=now();return o}
+function commit(){saveLocal();pending=true;lsSet('msb.pending',true);render();schedulePush()}
+
+/* ===== 祝日（内閣府の規則による計算値。春分・秋分は計算式による） ===== */
+const HC={};
+function holidays(y){
+  if(HC[y])return HC[y];
+  const m=new Map();
+  const add=(mo,d,n)=>m.set(y+'-'+pad(mo)+'-'+pad(d),n);
+  const nthMon=(mo,n)=>{const f=new Date(y,mo-1,1);return 1+(8-f.getDay())%7+7*(n-1)};
+  const k=y-1980,q=Math.floor(k/4);
+  add(1,1,'元日');add(1,nthMon(1,2),'成人の日');add(2,11,'建国記念の日');add(2,23,'天皇誕生日');
+  add(3,Math.floor(20.8431+0.242194*k-q),'春分の日');add(4,29,'昭和の日');
+  add(5,3,'憲法記念日');add(5,4,'みどりの日');add(5,5,'こどもの日');
+  add(7,nthMon(7,3),'海の日');add(8,11,'山の日');add(9,nthMon(9,3),'敬老の日');
+  add(9,Math.floor(23.2488+0.242194*k-q),'秋分の日');add(10,nthMon(10,2),'スポーツの日');
+  add(11,3,'文化の日');add(11,23,'勤労感謝の日');
+  const base=[...m.keys()];
+  // 国民の休日（祝日に挟まれた平日）
+  for(const s of base){const n=addDays(s,1),n2=addDays(s,2);
+    if(!m.has(n)&&m.has(n2)&&pYmd(n).getDay()!==0)m.set(n,'国民の休日')}
+  // 振替休日
+  for(const s of base){if(pYmd(s).getDay()===0){let d=addDays(s,1);while(m.has(d))d=addDays(d,1);m.set(d,'振替休日')}}
+  return HC[y]=m;
+}
+const holName=s=>holidays(+s.slice(0,4)).get(s)||'';
+
+/* ===== GitHub 同期 ===== */
+const configured=()=>cfg.owner&&cfg.repo&&cfg.token;
+function b64enc(s){const b=new TextEncoder().encode(s);let bin='';for(let i=0;i<b.length;i+=0x8000)bin+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(bin)}
+function b64dec(s){const bin=atob(s.replace(/\s/g,''));const b=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)b[i]=bin.charCodeAt(i);return new TextDecoder().decode(b)}
+function api(path,{method='GET',body=null,raw=false}={}){
+  const u='https://api.github.com/repos/'+encodeURIComponent(cfg.owner)+'/'+encodeURIComponent(cfg.repo)+'/contents/'+path+(method==='GET'?'?t='+now():'');
+  const h={'Authorization':'Bearer '+cfg.token,'Accept':raw?'application/vnd.github.raw+json':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
+  if(body)h['Content-Type']='application/json';
+  return fetch(u,{method,headers:h,cache:'no-store',body:body?JSON.stringify(body):undefined});
+}
+function apiErr(r){
+  if(r.status===401)return 'トークンが無効か期限切れです（設定で再入力）';
+  if(r.status===403)return 'トークンに書き込み権限がありません（Contents: Read and write）';
+  if(r.status===404)return 'リポジトリが見つかりません（名前・トークンの対象リポジトリを確認）';
+  return 'GitHubエラー '+r.status;
+}
+async function getFile(path){
+  const r=await api(path);
+  if(r.status===404){
+    // ファイルが無いだけか、リポジトリが無いのかを区別
+    const r2=await fetch('https://api.github.com/repos/'+encodeURIComponent(cfg.owner)+'/'+encodeURIComponent(cfg.repo),{headers:{'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json'},cache:'no-store'});
+    if(!r2.ok)throw new Error(apiErr(r2));
+    return {text:null,sha:null};
+  }
+  if(!r.ok)throw new Error(apiErr(r));
+  const j=await r.json();
+  let text;
+  if(j.content&&j.encoding==='base64')text=b64dec(j.content);
+  else{const r3=await api(path,{raw:true});if(!r3.ok)throw new Error(apiErr(r3));text=await r3.text()}
+  return {text,sha:j.sha};
+}
+async function putFile(path,text,sha,msg){
+  const body={message:msg,content:b64enc(text)};if(sha)body.sha=sha;
+  return api(path,{method:'PUT',body});
+}
+function mergeDB(a,b){
+  const out=emptyDB();
+  const lim=now()-90*864e5; // 削除から90日経った記録は掃除
+  for(const k of ['memos','events','todos']){
+    const m=new Map();
+    for(const x of (b[k]||[]))m.set(x.id,x);
+    for(const x of (a[k]||[])){const y=m.get(x.id);if(!y||(x.updatedAt||0)>=(y.updatedAt||0))m.set(x.id,x)}
+    out[k]=[...m.values()].filter(x=>!(x.deleted&&(x.updatedAt||0)<lim)).sort((p,q)=>p.id<q.id?-1:p.id>q.id?1:0);
+  }
+  const ck={};const ka=a.kkChecks||{},kb=b.kkChecks||{};
+  for(const key of new Set([...Object.keys(ka),...Object.keys(kb)])){const x=ka[key],y=kb[key];ck[key]=!y||(x&&x.t>=y.t)?x:y}
+  out.kkChecks=Object.fromEntries(Object.keys(ck).sort().map(k=>[k,ck[k]]));
+  const ma=a.kkMeta,mb=b.kkMeta;out.kkMeta=!mb||(ma&&ma.at>=mb.at)?ma||null:mb;
+  return out;
+}
+const canon=d=>JSON.stringify(mergeDB(d,emptyDB()));
+let syncing=false,again=false,pushT=null;
+function schedulePush(){clearTimeout(pushT);if(configured())pushT=setTimeout(sync,1200);else setStatus()}
+async function sync(){
+  if(!configured()){setStatus();return}
+  if(syncing){again=true;return}
+  syncing=true;setStatus('sync');
+  try{
+    let ok=false;
+    for(let i=0;i<4&&!ok;i++){
+      const f=await getFile('data.json');
+      const remote=f.text?Object.assign(emptyDB(),JSON.parse(f.text)):emptyDB();
+      const merged=mergeDB(db,remote);
+      db=merged;saveLocal();
+      if(f.text!==null&&canon(merged)===canon(remote)){ok=true;break}
+      const r=await putFile('data.json',JSON.stringify(merged,null,1),f.sha,'更新 '+fmtTs(now()));
+      if(r.ok){ok=true;break}
+      if(r.status!==409&&r.status!==422)throw new Error(apiErr(r));
+      // 他の端末が先に保存していた → 取り直してもう一度マージ
+    }
+    if(!ok)throw new Error('保存が競合しました。もう一度⟳を押してください');
+    pending=false;lsSet('msb.pending',false);
+    if(db.kkMeta&&db.kkMeta.at!==(lsGet('msb.kkAt')||0))await pullKK();
+    setStatus('ok');render();
+  }catch(e){
+    setStatus(navigator.onLine?'err':'off',e.message);
+  }finally{syncing=false;if(again){again=false;sync()}}
+}
+async function pullKK(){
+  if(!configured())return;
+  try{const f=await getFile('kakunin.md');if(f.text!==null){kkText=f.text;lsSet(LS.kk,kkText);lsSet('msb.kkAt',db.kkMeta?db.kkMeta.at:0)}}catch(e){}
+}
+let lastSync=0;
+function setStatus(s,msg){
+  const el=$('#st');
+  if(!configured()){el.textContent='この端末のみ（未設定）';el.title='設定タブでGitHubを設定すると全端末で同期します';return}
+  if(s==='ok')lastSync=now();
+  const t={sync:'同期中…',ok:'✓ 同期済 '+(lastSync?fmtTs(lastSync).slice(11):''),err:'⚠ 同期エラー',off:'オフライン（未送信あり）'}[s]||(pending?'未送信あり':'✓ 同期済');
+  el.textContent=t;el.title=msg||'';
+  if(s==='err'&&msg)toast(msg);
+}
+
+/* ===== 画面 ===== */
+function setTab(t){ui.tab=t;lsSet(LS.ui,ui);render();window.scrollTo(0,0)}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.t));
+$('#syncBtn').onclick=()=>{if(!configured()){setTab('set');toast('先にGitHubの設定をしてください');return}sync()};
+function render(){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===ui.tab));
+  const m=$('#main');
+  const keep=document.activeElement&&document.activeElement.id;
+  const val=keep&&document.activeElement.value;
+  ({memo:rMemo,cal:rCal,todo:rTodo,kk:rKK,set:rSet}[ui.tab]||rMemo)(m);
+  if(keep){const el=document.getElementById(keep);if(el&&el.tagName!=='BUTTON'){el.focus();if(val!=null&&el.value!==val&&el.type!=='checkbox')el.value=val}}
+}
+
+/* ---- メモ ---- */
+function linkify(t){return esc(t).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/(^|\s)(#[^\s#]+)/g,'$1<span class="tag">$2</span>')}
+const tagsOf=t=>[...new Set((t.match(/(?:^|\s)#([^\s#]+)/g)||[]).map(s=>s.trim().slice(1)))];
+function rMemo(m){
+  const all=live(db.memos);
+  const tags=[...new Set(all.flatMap(x=>tagsOf(x.text)))].sort();
+  let list=all.filter(x=>(!ui.memoTag||tagsOf(x.text).includes(ui.memoTag))&&(!S.q||x.text.toLowerCase().includes(S.q.toLowerCase())));
+  list.sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||b.createdAt-a.createdAt);
+  m.innerHTML=`
+  <div class="card">
+    <textarea id="mIn" placeholder="思いついたことを書く（#タグ で分類／Ctrl+Enterで保存）"></textarea>
+    <div class="row" style="margin-top:8px"><span class="muted grow">個人情報・患者情報は書かない</span><button class="btn p" id="mAdd">保存</button></div>
+  </div>
+  <input type="search" id="mQ" placeholder="メモを検索" value="${esc(S.q)}">
+  <div class="chips">${tags.length?`<span class="chip ${!ui.memoTag?'on':''}" data-tag="">すべて</span>`+tags.map(t=>`<span class="chip ${ui.memoTag===t?'on':''}" data-tag="${esc(t)}">#${esc(t)}</span>`).join(''):''}</div>
+  ${list.length?'':`<p class="muted">メモはまだありません。</p>`}
+  ${list.map(x=>`<div class="card ${x.pinned?'pin':''}">
+    <div class="memo-t">${linkify(x.text)}</div>
+    <div class="muted" style="margin-top:4px">${fmtTs(x.createdAt)}${x.updatedAt-x.createdAt>60000?'（編集 '+fmtTs(x.updatedAt)+'）':''}</div>
+    <div class="acts">
+      <button class="btn s" data-a="pin" data-id="${x.id}">${x.pinned?'固定解除':'📌固定'}</button>
+      <button class="btn s" data-a="edit" data-id="${x.id}">編集</button>
+      <button class="btn s" data-a="toTodo" data-id="${x.id}">→TODO</button>
+      <button class="btn s" data-a="toEv" data-id="${x.id}">→予定</button>
+      <button class="btn s d" data-a="del" data-id="${x.id}">削除</button>
+    </div></div>`).join('')}`;
+  const add=()=>{const v=$('#mIn').value.trim();if(!v)return;db.memos.push(touch({id:uid(),text:v,pinned:false,createdAt:now()}));$('#mIn').value='';commit();toast('保存しました')};
+  $('#mAdd').onclick=add;
+  $('#mIn').onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();add()}};
+  $('#mQ').oninput=e=>{S.q=e.target.value;rMemo(m);const q=$('#mQ');q.focus();q.setSelectionRange(q.value.length,q.value.length)};
+  m.querySelectorAll('[data-tag]').forEach(c=>c.onclick=()=>{ui.memoTag=c.dataset.tag;lsSet(LS.ui,ui);render()});
+  m.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
+    const x=db.memos.find(y=>y.id===b.dataset.id);if(!x)return;
+    const a=b.dataset.a;
+    if(a==='pin'){x.pinned=!x.pinned;touch(x);commit()}
+    else if(a==='del'){if(confirm('このメモを削除しますか？')){x.deleted=true;touch(x);commit()}}
+    else if(a==='edit')editMemo(x);
+    else if(a==='toTodo')editTodo({title:x.text.split('\n')[0].slice(0,80),note:x.text});
+    else if(a==='toEv')editEvent({title:x.text.split('\n')[0].slice(0,60),note:x.text,date:S.sel});
+  });
+}
+function editMemo(x){
+  modal(`<h3>メモを編集</h3><textarea id="eT" style="min-height:180px">${esc(x.text)}</textarea>
+  <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn" data-close>閉じる</button><button class="btn p" id="eS">保存</button></div>`);
+  $('#eS').onclick=()=>{const y=db.memos.find(z=>z.id===x.id)||x;y.text=$('#eT').value;touch(y);closeModal();commit()};
+}
+
+/* ---- 予定 ---- */
+const evOn=s=>live(db.events).filter(e=>e.date<=s&&(e.endDate||e.date)>=s).sort((a,b)=>(a.allDay?0:1)-(b.allDay?0:1)||(a.start||'').localeCompare(b.start||''));
+const tdOn=s=>live(db.todos).filter(t=>t.due===s);
+const evColor=e=>(CATMAP[e.cat]||CATMAP.etc)[2];
+const evTime=e=>e.allDay||!e.start?'終日':e.start+(e.end?'〜'+e.end:'');
+function rCal(m){
+  const y=S.month.getFullYear(),mo=S.month.getMonth();
+  const ws=+cfg.weekStart||0;
+  const first=new Date(y,mo,1);const off=(first.getDay()-ws+7)%7;
+  const start=new Date(y,mo,1-off);
+  const cells=[];for(let i=0;i<42;i++){const d=new Date(start);d.setDate(start.getDate()+i);cells.push(d)}
+  const rows=cells[35].getMonth()!==mo&&cells[28].getMonth()!==mo?28:cells[35].getMonth()!==mo?35:42;
+  const td=today();
+  const dows=[...Array(7)].map((_,i)=>WD[(i+ws)%7]);
+  const sel=S.sel;const hn=holName(sel);
+  const evs=evOn(sel),tds=tdOn(sel);
+  const up=[];if(ui.calView==='list'){for(let i=0;i<60;i++){const s=addDays(td,i);const e=evOn(s),t=tdOn(s).filter(x=>!x.done);if(e.length||t.length)up.push([s,e,t])}}
+  m.innerHTML=`
+  <div class="chips"><span class="chip ${ui.calView==='month'?'on':''}" data-v="month">月</span><span class="chip ${ui.calView==='list'?'on':''}" data-v="list">今後60日の一覧</span>
+  <span class="grow"></span><button class="btn s p" id="evNew">＋予定</button></div>
+  ${ui.calView==='list'?`<div class="card">${up.length?up.map(([s,e,t])=>`<div style="margin:6px 0 2px;font-weight:700" class="${pYmd(s).getDay()===0||holName(s)?'over':''}">${jDate(s)} ${esc(holName(s))}</div>`+e.map(evRow).join('')+t.map(tdRow).join('')).join(''):'<p class="muted">予定はありません。</p>'}</div>`:`
+  <div class="calhead"><button class="btn s" id="pm">◀</button><button class="btn s" id="tm">今月</button><div class="ttl">${y}年${mo+1}月</div><button class="btn s" id="nm">▶</button></div>
+  <div class="grid">${dows.map(d=>`<div class="dow">${d}</div>`).join('')}
+  ${cells.slice(0,rows).map(d=>{const s=ymd(d);const e=evOn(s);const t=tdOn(s).filter(x=>!x.done);const h=holName(s);
+    return `<div class="day ${d.getMonth()!==mo?'out':''} ${s===td?'today':''} ${s===sel?'sel':''} ${d.getDay()===0?'sun':''} ${d.getDay()===6?'sat':''} ${h?'hol':''}" data-d="${s}" title="${esc(h)}">
+    <span class="dn">${d.getDate()}</span>${t.length?`<span class="tdc">☑${t.length}</span>`:''}${h?`<div class="hn">${esc(h)}</div>`:''}
+    ${e.slice(0,3).map(x=>`<div class="ev" style="background:${evColor(x)}">${esc(x.title)}</div>`).join('')}${e.length>3?`<div class="more">+${e.length-3}</div>`:''}</div>`}).join('')}
+  </div>
+  <div class="card" style="margin-top:10px">
+    <div class="row"><b class="grow">${jDate(sel)} ${hn?`<span class="over">${esc(hn)}</span>`:''}</b>
+    <button class="btn s" id="dEv">＋予定</button><button class="btn s" id="dTd">＋TODO</button></div>
+    ${evs.length||tds.length?'':'<p class="muted">この日の予定・TODOはありません。</p>'}
+    ${evs.map(evRow).join('')}${tds.map(tdRow).join('')}
+  </div>`}`;
+  m.querySelectorAll('[data-v]').forEach(c=>c.onclick=()=>{ui.calView=c.dataset.v;lsSet(LS.ui,ui);render()});
+  $('#evNew').onclick=()=>editEvent({date:S.sel});
+  if(ui.calView==='month'){
+    $('#pm').onclick=()=>{S.month=new Date(y,mo-1,1);render()};
+    $('#nm').onclick=()=>{S.month=new Date(y,mo+1,1);render()};
+    $('#tm').onclick=()=>{const d=new Date();S.month=new Date(d.getFullYear(),d.getMonth(),1);S.sel=today();render()};
+    m.querySelectorAll('.day').forEach(c=>c.onclick=()=>{
+      if(S.sel===c.dataset.d&&!evOn(c.dataset.d).length)editEvent({date:c.dataset.d});
+      S.sel=c.dataset.d;const d=pYmd(S.sel);if(d.getMonth()!==mo)S.month=new Date(d.getFullYear(),d.getMonth(),1);render()});
+    $('#dEv').onclick=()=>editEvent({date:sel});
+    $('#dTd').onclick=()=>editTodo({due:sel});
+  }
+  bindRows(m);
+}
+function evRow(e){
+  const lt=live(db.todos).filter(t=>t.eventId===e.id);const dn=lt.filter(t=>t.done).length;
+  return `<div class="item" data-ev="${e.id}" style="cursor:pointer"><div class="bar" style="background:${evColor(e)}"></div>
+  <div class="tm">${evTime(e)}${e.endDate&&e.endDate!==e.date?'<br>〜'+jDate(e.endDate):''}</div>
+  <div class="grow"><div>${esc(e.title)}</div>${e.note?`<div class="muted" style="white-space:pre-wrap">${esc(e.note.length>90?e.note.slice(0,90)+'…':e.note)}</div>`:''}
+  ${lt.length?`<div class="muted">TODO ${dn}/${lt.length} 完了</div>`:''}</div></div>`;
+}
+function tdRow(t){
+  const ev=t.eventId&&db.events.find(e=>e.id===t.eventId&&!e.deleted);
+  const ov=!t.done&&t.due&&t.due<today();
+  return `<div class="item"><input type="checkbox" data-tk="${t.id}" ${t.done?'checked':''}>
+  <div class="grow" data-td="${t.id}" style="cursor:pointer"><div class="${t.done?'done-t':''}">${esc(t.title)}</div>
+  <div class="muted">${t.due?`<span class="${ov?'over':''}">期限 ${jDate(t.due)}${ov?'（期限切れ）':''}</span>`:'期限なし'}
+  ${ev?` ・ <span class="link" data-ev="${ev.id}">📅 ${esc(ev.title)}（${jDate(ev.date)}）</span>`:''}</div></div></div>`;
+}
+function bindRows(root){
+  root.querySelectorAll('[data-ev]').forEach(el=>el.onclick=e=>{e.stopPropagation();const x=db.events.find(y=>y.id===el.dataset.ev);if(x)editEvent(x)});
+  root.querySelectorAll('[data-td]').forEach(el=>el.onclick=()=>{const x=db.todos.find(y=>y.id===el.dataset.td);if(x)editTodo(x)});
+  root.querySelectorAll('[data-tk]').forEach(el=>el.onchange=()=>{const x=db.todos.find(y=>y.id===el.dataset.tk);if(!x)return;x.done=el.checked;x.doneAt=el.checked?now():null;touch(x);commit()});
+}
+function editEvent(src){
+  const isNew=!src.id;
+  const e=Object.assign({title:'',date:today(),endDate:'',allDay:true,start:'',end:'',cat:'work',note:''},src);
+  if(isNew&&src.start)e.allDay=false;
+  const draftTodos=[];
+  const draw=()=>{
+    const lt=isNew?draftTodos:live(db.todos).filter(t=>t.eventId===e.id);
+    modal(`<h3>${isNew?'予定を追加':'予定を編集'}</h3>
+    <label>タイトル</label><input type="text" id="fT" value="${esc(e.title)}">
+    <div class="row"><div class="grow"><label>日付</label><input type="date" id="fD" value="${esc(e.date)}"></div>
+    <div class="grow"><label>終了日（複数日のとき）</label><input type="date" id="fE" value="${esc(e.endDate||'')}"></div></div>
+    <label><input type="checkbox" id="fA" ${e.allDay?'checked':''}> 終日</label>
+    <div class="row ${e.allDay?'hide':''}" id="fTm"><div class="grow"><label>開始</label><input type="time" id="fS" value="${esc(e.start||'')}"></div><div class="grow"><label>終了</label><input type="time" id="fN" value="${esc(e.end||'')}"></div></div>
+    <label>分類</label><select id="fC">${CATS.map(c=>`<option value="${c[0]}" ${e.cat===c[0]?'selected':''}>${c[1]}</option>`).join('')}</select>
+    <label>メモ（場所・持ち物・準備など）</label><textarea id="fM">${esc(e.note||'')}</textarea>
+    <label>この予定のTODO</label>
+    <div class="card" style="padding:6px 10px">${lt.length?lt.map((t,i)=>`<div class="item"><input type="checkbox" data-mt="${i}" ${t.done?'checked':''}><div class="grow ${t.done?'done-t':''}">${esc(t.title)}${t.due?` <span class="muted">（${jDate(t.due)}まで）</span>`:''}</div><button class="btn s d" data-mx="${i}">✕</button></div>`).join(''):'<p class="muted" style="margin:4px 0">まだありません</p>'}
+      <div class="row" style="margin-top:6px"><input type="text" id="fNT" class="grow" placeholder="TODOを追加（例：スライド作成）" style="flex:1"><input type="date" id="fND" style="width:auto"><button class="btn s" id="fAT">追加</button></div></div>
+    <div class="row" style="margin-top:14px">${isNew?'':'<button class="btn d" id="fDel">削除</button><button class="btn" id="fDup">別の日に複製</button>'}<span class="grow"></span><button class="btn" data-close>閉じる</button><button class="btn p" id="fSave">保存</button></div>`);
+    const grab=()=>{e.title=$('#fT').value;e.date=$('#fD').value||e.date;e.endDate=$('#fE').value;e.allDay=$('#fA').checked;e.start=$('#fS').value;e.end=$('#fN').value;e.cat=$('#fC').value;e.note=$('#fM').value;};
+    $('#fA').onchange=()=>$('#fTm').classList.toggle('hide',$('#fA').checked);
+    $('#fAT').onclick=()=>{grab();const v=$('#fNT').value.trim();if(!v)return;const t={id:uid(),title:v,done:false,due:$('#fND').value||'',eventId:e.id||null,note:'',createdAt:now()};
+      if(isNew)draftTodos.push(t);else{db.todos.push(touch(t));commitQuiet()}draw();setTimeout(()=>$('#fNT').focus(),0)};
+    $('#fNT').onkeydown=k=>{if(k.key==='Enter'){k.preventDefault();$('#fAT').click()}};
+    $('#md').querySelectorAll('[data-mt]').forEach(c=>c.onchange=()=>{grab();const t0=lt[+c.dataset.mt];const t=isNew?t0:(db.todos.find(x=>x.id===t0.id)||t0);t.done=c.checked;t.doneAt=c.checked?now():null;if(!isNew){touch(t);commitQuiet()}draw()});
+    $('#md').querySelectorAll('[data-mx]').forEach(c=>c.onclick=()=>{grab();const t0=lt[+c.dataset.mx];const t=isNew?t0:(db.todos.find(x=>x.id===t0.id)||t0);if(isNew)draftTodos.splice(+c.dataset.mx,1);else if(confirm('このTODOを削除しますか？')){t.deleted=true;touch(t);commitQuiet()}draw()});
+    $('#fSave').onclick=()=>{grab();if(!e.title.trim()){toast('タイトルを入れてください');return}
+      if(e.endDate&&e.endDate<e.date)e.endDate='';if(e.endDate===e.date)e.endDate='';
+      if(isNew){e.id=uid();e.createdAt=now();db.events.push(touch(e));draftTodos.forEach(t=>{t.eventId=e.id;db.todos.push(touch(t))})}
+      else{const x=db.events.find(y=>y.id===e.id);Object.assign(x,e);touch(x)}
+      S.sel=e.date;const d=pYmd(e.date);S.month=new Date(d.getFullYear(),d.getMonth(),1);closeModal();commit();toast('保存しました')};
+    if(!isNew){
+      $('#fDel').onclick=()=>{if(!confirm('この予定を削除しますか？（関連TODOは残ります）'))return;const x=db.events.find(y=>y.id===e.id);x.deleted=true;touch(x);closeModal();commit()};
+      $('#fDup').onclick=()=>{grab();const c=Object.assign({},e);delete c.id;closeModal();editEvent(c);toast('日付を変えて保存してください')};
+    }
+  };
+  draw();
+}
+function commitQuiet(){saveLocal();pending=true;lsSet('msb.pending',true);schedulePush()}
+
+/* ---- TODO ---- */
+function rTodo(m){
+  const td=today();const all=live(db.todos);
+  const F={open:['未完了',t=>!t.done],today:['今日まで',t=>!t.done&&t.due&&t.due<=td],nodue:['期限なし',t=>!t.done&&!t.due],plan:['予定にひも付け',t=>!t.done&&t.eventId],done:['完了',t=>t.done]};
+  const f=F[ui.todoF]||F.open;
+  let list=all.filter(f[1]);
+  if(ui.todoF==='done')list.sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
+  else list.sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||a.createdAt-b.createdAt);
+  m.innerHTML=`
+  <div class="card"><div class="row"><input type="text" id="tIn" class="grow" placeholder="TODOを追加" style="flex:1"><input type="date" id="tDu" style="width:auto"><button class="btn p" id="tAdd">追加</button></div></div>
+  <div class="chips">${Object.entries(F).map(([k,v])=>`<span class="chip ${ui.todoF===k?'on':''}" data-f="${k}">${v[0]}（${all.filter(v[1]).length}）</span>`).join('')}</div>
+  <div class="card">${list.length?list.slice(0,ui.todoF==='done'?100:999).map(tdRow).join(''):'<p class="muted">該当するTODOはありません。</p>'}</div>
+  ${ui.todoF==='done'&&list.length?'<button class="btn s d" id="tClr">完了済みを30日より前の分だけ削除</button>':''}`;
+  const add=()=>{const v=$('#tIn').value.trim();if(!v)return;db.todos.push(touch({id:uid(),title:v,done:false,due:$('#tDu').value||'',eventId:null,note:'',createdAt:now()}));$('#tIn').value='';commit()};
+  $('#tAdd').onclick=add;$('#tIn').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();add()}};
+  m.querySelectorAll('[data-f]').forEach(c=>c.onclick=()=>{ui.todoF=c.dataset.f;lsSet(LS.ui,ui);render()});
+  const c=$('#tClr');if(c)c.onclick=()=>{const lim=now()-30*864e5;let n=0;db.todos.forEach(t=>{if(!t.deleted&&t.done&&(t.doneAt||0)<lim){t.deleted=true;touch(t);n++}});if(n){commit()}toast(n+'件削除')};
+  bindRows(m);
+}
+function editTodo(src){
+  const isNew=!src.id;
+  const t=Object.assign({title:'',due:'',eventId:null,note:'',done:false},src);
+  const td=today();
+  const evs=live(db.events).filter(e=>e.id===t.eventId||(e.endDate||e.date)>=addDays(td,-30)).sort((a,b)=>a.date.localeCompare(b.date));
+  modal(`<h3>${isNew?'TODOを追加':'TODOを編集'}</h3>
+  <label>内容</label><input type="text" id="gT" value="${esc(t.title)}">
+  <label>期限</label><input type="date" id="gD" value="${esc(t.due||'')}">
+  <label>ひも付ける予定</label><select id="gE"><option value="">（なし）</option>${evs.map(e=>`<option value="${e.id}" ${e.id===t.eventId?'selected':''}>${jDate(e.date)} ${esc(e.title)}</option>`).join('')}</select>
+  <p class="muted" style="margin:4px 0">予定を選ぶと、その予定の画面にこのTODOが表示されます。期限を空にして予定を選ぶと、予定の前日が期限になります。</p>
+  <label>メモ</label><textarea id="gM">${esc(t.note||'')}</textarea>
+  ${isNew?'':`<label><input type="checkbox" id="gX" ${t.done?'checked':''}> 完了</label>`}
+  <div class="row" style="margin-top:14px">${isNew?'':'<button class="btn d" id="gDel">削除</button>'}<span class="grow"></span><button class="btn" data-close>閉じる</button><button class="btn p" id="gS">保存</button></div>`);
+  $('#gS').onclick=()=>{
+    t.title=$('#gT').value.trim();if(!t.title){toast('内容を入れてください');return}
+    t.due=$('#gD').value;t.eventId=$('#gE').value||null;t.note=$('#gM').value;
+    if(!t.due&&t.eventId){const e=db.events.find(x=>x.id===t.eventId);if(e)t.due=addDays(e.date,-1)}
+    if(!isNew){const d=$('#gX').checked;if(d!==t.done){t.done=d;t.doneAt=d?now():null}}
+    if(isNew){t.id=uid();t.createdAt=now();db.todos.push(touch(t))}else{Object.assign(db.todos.find(x=>x.id===t.id),t);touch(db.todos.find(x=>x.id===t.id))}
+    closeModal();commit();toast('保存しました')};
+  if(!isNew)$('#gDel').onclick=()=>{if(!confirm('このTODOを削除しますか？'))return;const x=db.todos.find(y=>y.id===t.id);x.deleted=true;touch(x);closeModal();commit()};
+}
+
+/* ---- 確認事項（Markdown表示） ---- */
+function hkey(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return 'k'+(h>>>0).toString(36)}
+function inl(s,q){let h=esc(s).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  if(q){const re=new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');h=h.replace(/(<[^>]+>)|([^<]+)/g,(m0,tag,tx)=>tag?tag:tx.replace(re,x=>'<mark>'+x+'</mark>'))}
+  return h}
+const isChk=k=>{const c=db.kkChecks[k];return !!(c&&c.v)};
+function mdRender(src,q){
+  const L=src.replace(/\r\n?/g,'\n').split('\n');let h='',i=0,inUl=false,sec='',secs=[];const keys=[];
+  const closeUl=()=>{if(inUl){h+='</ul>';inUl=false}};
+  const hit=t=>!q||t.toLowerCase().includes(q.toLowerCase());
+  while(i<L.length){
+    let l=L[i];
+    if(/^\s*\|/.test(l)){
+      closeUl();const rows=[];while(i<L.length&&/^\s*\|/.test(L[i])){rows.push(L[i]);i++}
+      const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+      const head=cells(rows[0]);const body=rows.slice(1).filter(r=>!/^\s*\|?\s*:?-{2,}/.test(r)).map(cells);
+      const shown=body.filter(r=>hit(r.join(' ')));
+      if(!shown.length)continue;
+      h+='<div class="tw"><table><tr><th>済</th>'+head.map(c=>'<th>'+inl(c)+'</th>').join('')+'</tr>';
+      for(const r of shown){const txt=r.join('｜');const k=hkey(sec+'|'+txt);keys.push([k,(sec?'['+sec+'] ':'')+txt]);
+        h+=`<tr class="${isChk(k)?'dn':''}"><td class="ck"><input type="checkbox" data-kk="${k}" ${isChk(k)?'checked':''}></td>`+r.map(c=>'<td>'+inl(c,q)+'</td>').join('')+'</tr>'}
+      h+='</table></div>';continue;
+    }
+    let mm;
+    if((mm=l.match(/^(#{1,4})\s+(.*)/))){closeUl();const lv=Math.min(mm[1].length,3);if(lv===2){sec=mm[2];secs.push(sec)}
+      h+=`<h${lv} ${lv===2?`id="s${secs.length}"`:''}>${inl(mm[2])}</h${lv}>`;i++;continue}
+    if((mm=l.match(/^\s*[-*]\s+(.*)/))){
+      const t=mm[1];i++;if(!hit(t))continue;
+      if(!inUl){h+='<ul>';inUl=true}
+      const c=t.match(/^([□■☐☑✅])\s*(.*)/);
+      if(c){const done0=/[■☑✅]/.test(c[1]);const k=hkey(sec+'|'+c[2]);keys.push([k,(sec?'['+sec+'] ':'')+c[2]]);const on=done0||isChk(k);
+        h+=`<li class="cb ${on?'dn':''}"><input type="checkbox" data-kk="${k}" ${on?'checked':''} ${done0?'disabled':''}><span class="lt">${inl(c[2],q)}</span></li>`}
+      else h+='<li>'+inl(t,q)+'</li>';
+      continue;
+    }
+    closeUl();
+    if(l.trim())h+='<p>'+inl(l,q)+'</p>';
+    i++;
+  }
+  closeUl();return {h,secs,keys};
+}
+let kkKeys=[];
+function rKK(m){
+  const meta=db.kkMeta;
+  const r=kkText?mdRender(kkText,S.kq):{h:'',secs:[],keys:[]};
+  kkKeys=r.keys;
+  const nChk=r.keys.filter(([k])=>isChk(k)).length;
+  m.innerHTML=`
+  <div class="card"><div class="row"><div class="grow"><b>00_確認事項_行動別.md</b><div class="muted">${meta?'アップロード：'+fmtTs(meta.at)+(meta.from?'（'+esc(meta.from)+'）':''):'まだアップロードされていません'}</div></div>
+  <label class="btn p" style="cursor:pointer">アップロード<input type="file" id="kkF" accept=".md,.txt,text/markdown,text/plain" class="hide"></label></div>
+  <p class="muted" style="margin:6px 0 0">「済」に印を付けると全端末で共有されます。Claudeに伝えるときは下のボタンでコピーして貼り付け。</p>
+  <div class="row" style="margin-top:6px"><button class="btn s" id="kkCp" ${nChk?'':'disabled'}>済の項目をコピー（${nChk}件）</button><button class="btn s" id="kkRl">再読み込み</button></div></div>
+  ${kkText?`<input type="search" id="kQ" placeholder="確認事項を検索（例：101、病理）" value="${esc(S.kq)}">
+  <div class="chips">${r.secs.map((s,i)=>`<span class="chip" data-j="s${i+1}">${esc(s.replace(/[（(].*$/,'').slice(0,14))}</span>`).join('')}</div>
+  <div class="kk card">${r.h||'<p class="muted">該当なし</p>'}</div>`:''}`;
+  $('#kkF').onchange=async ev=>{
+    const f=ev.target.files[0];if(!f)return;
+    const txt=await f.text();
+    if(!configured()){kkText=txt;lsSet(LS.kk,kkText);db.kkMeta={at:now(),name:f.name,from:devName()};saveLocal();render();toast('この端末に保存（GitHub未設定）');return}
+    setStatus('sync');
+    try{
+      for(let i=0;i<3;i++){const g=await getFile('kakunin.md');const p=await putFile('kakunin.md',txt,g.sha,'確認事項を更新 '+fmtTs(now()));if(p.ok)break;if(p.status!==409&&p.status!==422)throw new Error(apiErr(p));}
+      kkText=txt;lsSet(LS.kk,kkText);db.kkMeta={at:now(),name:f.name,from:devName()};lsSet('msb.kkAt',db.kkMeta.at);
+      // 消えた項目の「済」印を掃除
+      const cur=new Set(mdRender(txt,'').keys.map(x=>x[0]));for(const k of Object.keys(db.kkChecks))if(!cur.has(k))delete db.kkChecks[k];
+      commit();toast('アップロードしました');
+    }catch(e){setStatus('err',e.message)}
+  };
+  $('#kkRl').onclick=async()=>{await pullKK();render();toast('読み込みました')};
+  $('#kkCp').onclick=()=>{const t='以下は済：\n'+kkKeys.filter(([k])=>isChk(k)).map(([,t])=>'- '+t).join('\n');copy(t)};
+  const q=$('#kQ');if(q)q.oninput=e=>{S.kq=e.target.value;rKK(m);const k=$('#kQ');k.focus();k.setSelectionRange(k.value.length,k.value.length)};
+  m.querySelectorAll('[data-j]').forEach(c=>c.onclick=()=>{const t=document.getElementById(c.dataset.j);if(t)window.scrollTo({top:t.getBoundingClientRect().top+scrollY-60,behavior:'smooth'})});
+  m.querySelectorAll('[data-kk]').forEach(c=>c.onchange=()=>{db.kkChecks[c.dataset.kk]={v:c.checked,t:now()};commitQuiet();const p=c.closest('tr,li');if(p)p.classList.toggle('dn',c.checked);
+    const b=$('#kkCp');const n=kkKeys.filter(([k])=>isChk(k)).length;b.textContent='済の項目をコピー（'+n+'件）';b.disabled=!n});
+}
+function copy(t){(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('コピーしました')).catch(()=>{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');toast('コピーしました')}catch(e){prompt('コピーしてください',t)}a.remove()})}
+function devName(){const u=navigator.userAgent;return /iPhone/.test(u)?'iPhone':/iPad/.test(u)?'iPad':/Android/.test(u)?'Android':/Windows/.test(u)?'Windows':/Mac/.test(u)?'Mac':'端末'}
+
+/* ---- 設定 ---- */
+function rSet(m){
+  m.innerHTML=`
+  <div class="card"><h2 style="margin-top:0">GitHub同期の設定（端末ごとに1回）</h2>
+  <label class="muted">GitHubのユーザー名</label><input type="text" id="cO" value="${esc(cfg.owner)}" autocapitalize="off" autocomplete="off" spellcheck="false">
+  <label class="muted">データ用リポジトリ名（非公開＝Private）</label><input type="text" id="cR" value="${esc(cfg.repo)}" placeholder="memo-data" autocapitalize="off" autocomplete="off" spellcheck="false">
+  <label class="muted">トークン（Fine-grained personal access token）</label><input type="password" id="cK" value="${esc(cfg.token)}" autocomplete="off" placeholder="github_pat_…">
+  <div class="row" style="margin-top:10px"><button class="btn p" id="cS">保存して接続</button><button class="btn" id="cX">この端末から設定を消す</button></div>
+  <p class="muted">トークンはこの端末のブラウザ内にだけ保存されます。紛失・機種変更時はGitHubでトークンを削除すれば無効になります。</p></div>
+  <div class="card"><h2 style="margin-top:0">表示</h2>
+  <label class="muted">週の始まり</label><select id="cW"><option value="0" ${+cfg.weekStart===0?'selected':''}>日曜</option><option value="1" ${+cfg.weekStart===1?'selected':''}>月曜</option></select></div>
+  <div class="card"><h2 style="margin-top:0">バックアップ</h2>
+  <div class="row"><button class="btn" id="bE">JSONで書き出す</button><label class="btn" style="cursor:pointer">JSONを読み込む（合体）<input type="file" id="bI" accept=".json" class="hide"></label></div>
+  <p class="muted">件数：メモ ${live(db.memos).length}／予定 ${live(db.events).length}／TODO ${live(db.todos).length}</p></div>
+  <div class="card help"><h2 style="margin-top:0">使い方のコツ</h2><ul>
+  <li>スマホはブラウザの「ホーム画面に追加」でアプリのように使えます。</li>
+  <li>オフラインでも書けます。つながったときに自動で送信します（右上の表示で確認）。</li>
+  <li>2台で同時に編集しても、項目ごとに新しいほうが残るように合体します。</li>
+  <li>カレンダーの日付を2回タップすると、その日の予定を追加できます。</li></ul></div>`;
+  $('#cS').onclick=async()=>{cfg.owner=$('#cO').value.trim();cfg.repo=$('#cR').value.trim();cfg.token=$('#cK').value.trim();lsSet(LS.cfg,cfg);
+    if(!configured()){toast('3つとも入れてください');setStatus();return}
+    await sync();if($('#st').textContent.startsWith('✓')){await pullKK();toast('接続できました');render()}};
+  $('#cX').onclick=()=>{if(!confirm('この端末のGitHub設定（トークン）を消しますか？データはGitHubに残ります'))return;cfg.token='';lsSet(LS.cfg,cfg);setStatus();render()};
+  $('#cW').onchange=e=>{cfg.weekStart=+e.target.value;lsSet(LS.cfg,cfg)};
+  $('#bE').onclick=()=>{const b=new Blob([JSON.stringify(db,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='memo-backup-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)};
+  $('#bI').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());db=mergeDB(db,Object.assign(emptyDB(),j));commit();toast('読み込みました')}catch(x){toast('読み込めませんでした')}};
+}
+
+/* ---- モーダル ---- */
+function modal(html){$('#md').innerHTML=html;$('#ov').classList.add('on');$('#md').querySelectorAll('[data-close]').forEach(b=>b.onclick=closeModal)}
+function closeModal(){$('#ov').classList.remove('on');$('#md').innerHTML='';render()}
+$('#ov').addEventListener('click',e=>{if(e.target.id==='ov')closeModal()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#ov').classList.contains('on'))closeModal()});
+
+/* ---- 起動 ---- */
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&configured()&&!$('#ov').classList.contains('on'))sync()});
+window.addEventListener('online',()=>{if(configured())sync()});
+render();setStatus();
+if(configured())sync();
+</script>
+</body>
+</html>
