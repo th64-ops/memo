@@ -93,6 +93,26 @@ h2{font-size:16px;margin:16px 0 8px}
 .kk li.cb{list-style:none;margin-left:-20px;display:flex;gap:8px;align-items:flex-start}
 .kk input[type=checkbox]{width:19px;height:19px;accent-color:var(--acc)}
 .kk mark{background:#ffe58a;color:#222}
+.kk .cmb{border:1px solid var(--line);background:var(--card);border-radius:7px;padding:1px 5px;font-size:13px;cursor:pointer;margin-top:4px;line-height:1.4}
+.kk .cmb.has{background:var(--acc2);border-color:var(--acc)}
+.kk .cmt{font-size:13px;background:var(--acc2);border-radius:7px;padding:4px 8px;margin-top:4px;white-space:pre-wrap;color:var(--ink);cursor:pointer}
+.kk tr.cm td{border-top:0;padding-top:0}
+.kk li .cmt{margin-left:0}
+details.log summary{cursor:pointer;font-weight:700}
+@media (max-width:640px){
+ .kk table,.kk tbody,.kk tr,.kk td{display:block;width:auto}
+ .kk table{background:none}
+ .kk tr:first-child{display:none}
+ .kk tr{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:6px 8px 6px 46px;margin:0 0 8px;position:relative}
+ .kk tr.cm{border:0;background:none;padding:0 0 0 46px;margin:-6px 0 10px}
+ .kk td{border:0;padding:1px 0}
+ .kk td.ck{position:absolute;left:8px;top:8px;width:auto;padding:0}
+ .kk td[data-l]:not(:last-child){display:inline-block;margin-right:10px;font-size:13px;color:var(--sub)}
+ .kk td[data-l]::before{content:attr(data-l)"：";font-size:12px;color:var(--sub)}
+ .kk td:last-child::before{display:block}
+ .kk tr.cm td:first-child{display:none}
+ .tw{overflow:visible}
+}
 .toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#333;color:#fff;padding:8px 14px;border-radius:9px;font-size:14px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
 .toast.on{opacity:.95}
 .hide{display:none!important}
@@ -169,7 +189,7 @@ const jDate=s=>{if(!s)return'';const d=pYmd(s);return (d.getMonth()+1)+'/'+d.get
 const fmtTs=t=>{const d=new Date(t);return d.getFullYear()+'/'+pad(d.getMonth()+1)+'/'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())};
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),2200)}
 
-const emptyDB=()=>({v:1,memos:[],events:[],todos:[],kkChecks:{},kkMeta:null});
+const emptyDB=()=>({v:1,memos:[],events:[],todos:[],kkChecks:{},kkLog:[],kkMeta:null});
 let db=Object.assign(emptyDB(),lsGet(LS.data)||{});
 let cfg=Object.assign({owner:'',repo:'',token:'',weekStart:0,tokenExp:''},lsGet(LS.cfg)||{});
 let ui=Object.assign({tab:'memo',memoTag:'',todoF:'open',calView:'month'},lsGet(LS.ui)||{});
@@ -245,7 +265,7 @@ async function putFile(path,text,sha,msg){
 function mergeDB(a,b){
   const out=emptyDB();
   const lim=now()-90*864e5; // 削除から90日経った記録は掃除
-  for(const k of ['memos','events','todos']){
+  for(const k of ['memos','events','todos','kkLog']){
     const m=new Map();
     for(const x of (b[k]||[]))m.set(x.id,x);
     for(const x of (a[k]||[])){const y=m.get(x.id);if(!y||(x.updatedAt||0)>=(y.updatedAt||0))m.set(x.id,x)}
@@ -526,6 +546,11 @@ function inl(s,q){let h=esc(s).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/
   if(q){const re=new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');h=h.replace(/(<[^>]+>)|([^<]+)/g,(m0,tag,tx)=>tag?tag:tx.replace(re,x=>'<mark>'+x+'</mark>'))}
   return h}
 const isChk=k=>{const c=db.kkChecks[k];return !!(c&&c.v)};
+const kGet=k=>db.kkChecks[k]||{};
+const hasK=k=>{const c=db.kkChecks[k];return !!(c&&(c.v||c.c))};
+function kSet(k,patch,text){db.kkChecks[k]=Object.assign({},kGet(k),patch,{t:now(),x:text});}
+function cmtHtml(k){const c=kGet(k);return c.c?`<div class="cmt" data-kc="${k}">💬 ${c.cd?jDate(c.cd)+'：':''}${esc(c.c)}</div>`:''}
+function cmtBtn(k){return `<br><button class="cmb ${kGet(k).c?'has':''}" data-kc="${k}" title="対処のコメント">💬</button>`}
 function mdRender(src,q){
   const L=src.replace(/\r\n?/g,'\n').split('\n');let h='',i=0,inUl=false,sec='',secs=[];const keys=[];
   const closeUl=()=>{if(inUl){h+='</ul>';inUl=false}};
@@ -536,22 +561,23 @@ function mdRender(src,q){
       closeUl();const rows=[];while(i<L.length&&/^\s*\|/.test(L[i])){rows.push(L[i]);i++}
       const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
       const head=cells(rows[0]);const body=rows.slice(1).filter(r=>!/^\s*\|?\s*:?-{2,}/.test(r)).map(cells);
-      const shown=body.filter(r=>hit(r.join(' ')));
+      const shown=body.filter(r=>hit(r.join(' ')+' '+(kGet(hkey(sec+'|'+r.join('｜'))).c||'')));
       if(!shown.length)continue;
       h+='<div class="tw"><table><tr><th>済</th>'+head.map(c=>'<th>'+inl(c)+'</th>').join('')+'</tr>';
       for(const r of shown){const txt=r.join('｜');const k=hkey(sec+'|'+txt);keys.push([k,(sec?'['+sec+'] ':'')+txt]);
-        h+=`<tr class="${isChk(k)?'dn':''}"><td class="ck"><input type="checkbox" data-kk="${k}" ${isChk(k)?'checked':''}></td>`+r.map(c=>'<td>'+inl(c,q)+'</td>').join('')+'</tr>'}
+        h+=`<tr class="${isChk(k)?'dn':''}"><td class="ck"><input type="checkbox" data-kk="${k}" ${isChk(k)?'checked':''}>${cmtBtn(k)}</td>`+r.map((c,ci)=>`<td data-l="${esc(head[ci]||'')}">`+inl(c,q)+'</td>').join('')+'</tr>';
+        if(kGet(k).c)h+=`<tr class="cm"><td></td><td colspan="${r.length}">${cmtHtml(k)}</td></tr>`}
       h+='</table></div>';continue;
     }
     let mm;
     if((mm=l.match(/^(#{1,4})\s+(.*)/))){closeUl();const lv=Math.min(mm[1].length,3);if(lv===2){sec=mm[2];secs.push(sec)}
       h+=`<h${lv} ${lv===2?`id="s${secs.length}"`:''}>${inl(mm[2])}</h${lv}>`;i++;continue}
     if((mm=l.match(/^\s*[-*]\s+(.*)/))){
-      const t=mm[1];i++;if(!hit(t))continue;
+      const t=mm[1];i++;{const c0=t.match(/^([□■☐☑✅])\s*(.*)/);const kc=c0?kGet(hkey(sec+'|'+c0[2])).c||'':'';if(!hit(t+' '+kc))continue}
       if(!inUl){h+='<ul>';inUl=true}
       const c=t.match(/^([□■☐☑✅])\s*(.*)/);
       if(c){const done0=/[■☑✅]/.test(c[1]);const k=hkey(sec+'|'+c[2]);keys.push([k,(sec?'['+sec+'] ':'')+c[2]]);const on=done0||isChk(k);
-        h+=`<li class="cb ${on?'dn':''}"><input type="checkbox" data-kk="${k}" ${on?'checked':''} ${done0?'disabled':''}><span class="lt">${inl(c[2],q)}</span></li>`}
+        h+=`<li class="cb ${on?'dn':''}"><input type="checkbox" data-kk="${k}" ${on?'checked':''} ${done0?'disabled':''}><div class="grow"><span class="lt">${inl(c[2],q)}</span> <button class="cmb ${kGet(k).c?'has':''}" data-kc="${k}" title="対処のコメント">💬</button>${cmtHtml(k)}</div></li>`}
       else h+='<li>'+inl(t,q)+'</li>';
       continue;
     }
@@ -566,34 +592,67 @@ function rKK(m){
   const meta=db.kkMeta;
   const r=kkText?mdRender(kkText,S.kq):{h:'',secs:[],keys:[]};
   kkKeys=r.keys;
-  const nChk=r.keys.filter(([k])=>isChk(k)).length;
+  const nChk=r.keys.filter(([k])=>hasK(k)).length;
+  const logs=live(db.kkLog).sort((a,b)=>(b.at||0)-(a.at||0));
   m.innerHTML=`
   <div class="card"><div class="row"><div class="grow"><b>00_確認事項_行動別.md</b><div class="muted">${meta?'アップロード：'+fmtTs(meta.at)+(meta.from?'（'+esc(meta.from)+'）':''):'まだアップロードされていません'}</div></div>
   <label class="btn p" style="cursor:pointer">アップロード<input type="file" id="kkF" accept=".md,.txt,text/markdown,text/plain" class="hide"></label></div>
-  <p class="muted" style="margin:6px 0 0">「済」に印を付けると全端末で共有されます。Claudeに伝えるときは下のボタンでコピーして貼り付け。</p>
-  <div class="row" style="margin-top:6px"><button class="btn s" id="kkCp" ${nChk?'':'disabled'}>済の項目をコピー（${nChk}件）</button><button class="btn s" id="kkRl">再読み込み</button></div></div>
+  <p class="muted" style="margin:6px 0 0">「済」の印と💬（どう対処したか）は全端末で共有されます。Claudeに伝えるときは下のボタンでコピーして貼り付け。</p>
+  <div class="row" style="margin-top:6px"><button class="btn s" id="kkCp" ${nChk?'':'disabled'}>済・コメントをコピー（${nChk}件）</button><button class="btn s" id="kkRl">再読み込み</button></div></div>
   ${kkText?`<input type="search" id="kQ" placeholder="確認事項を検索（例：101、病理）" value="${esc(S.kq)}">
   <div class="chips">${r.secs.map((s,i)=>`<span class="chip" data-j="s${i+1}">${esc(s.replace(/[（(].*$/,'').slice(0,14))}</span>`).join('')}</div>
-  <div class="kk card">${r.h||'<p class="muted">該当なし</p>'}</div>`:''}`;
+  <div class="kk card">${r.h||'<p class="muted">該当なし</p>'}</div>`:''}
+  ${logs.length?`<details class="card log"><summary>対処の記録（ファイルから消えた項目 ${logs.length}件）</summary>
+    <div class="row" style="margin:8px 0"><button class="btn s" id="lgCp">記録をコピー</button><button class="btn s d" id="lgClr">記録をすべて消す</button></div>
+    ${logs.map(l=>`<div class="item"><div class="grow"><div>${l.v?'✅':'□'} ${esc(l.x||'')}</div>${l.c?`<div class="muted" style="white-space:pre-wrap">💬 ${l.cd?jDate(l.cd)+'：':''}${esc(l.c)}</div>`:''}<div class="muted">記録 ${fmtTs(l.at)}</div></div><button class="btn s d" data-lg="${l.id}">✕</button></div>`).join('')}</details>`:''}`;
   $('#kkF').onchange=async ev=>{
     const f=ev.target.files[0];if(!f)return;
     const txt=await f.text();
-    if(!configured()){kkText=txt;lsSet(LS.kk,kkText);db.kkMeta={at:now(),name:f.name,from:devName()};saveLocal();render();toast('この端末に保存（GitHub未設定）');return}
+    if(!configured()){archiveKK(txt);kkText=txt;lsSet(LS.kk,kkText);db.kkMeta={at:now(),name:f.name,from:devName()};saveLocal();render();toast('この端末に保存（GitHub未設定）');return}
     setStatus('sync');
     try{
       for(let i=0;i<3;i++){const g=await getFile('kakunin.md');const p=await putFile('kakunin.md',txt,g.sha,'確認事項を更新 '+fmtTs(now()));if(p.ok)break;if(p.status!==409&&p.status!==422)throw new Error(apiErr(p));}
       kkText=txt;lsSet(LS.kk,kkText);db.kkMeta={at:now(),name:f.name,from:devName()};lsSet('msb.kkAt',db.kkMeta.at);
       // 消えた項目の「済」印を掃除
-      const cur=new Set(mdRender(txt,'').keys.map(x=>x[0]));for(const k of Object.keys(db.kkChecks))if(!cur.has(k))delete db.kkChecks[k];
+      archiveKK(txt);
       commit();toast('アップロードしました');
     }catch(e){setStatus('err',e.message)}
   };
   $('#kkRl').onclick=async()=>{await pullKK();render();toast('読み込みました')};
-  $('#kkCp').onclick=()=>{const t='以下は済：\n'+kkKeys.filter(([k])=>isChk(k)).map(([,t])=>'- '+t).join('\n');copy(t)};
+  const line=(t,c,lab)=>'- '+t+(c.c?'\n  → '+lab+(c.cd?'（'+jDate(c.cd)+'）':'')+'：'+c.c.replace(/\n/g,' / '):'');
+  $('#kkCp').onclick=()=>{
+    const done=kkKeys.filter(([k])=>isChk(k)),wip=kkKeys.filter(([k])=>!isChk(k)&&kGet(k).c);
+    let t='';
+    if(done.length)t+='【済】\n'+done.map(([k,x])=>line(x,kGet(k),'対処')).join('\n')+'\n';
+    if(wip.length)t+=(t?'\n':'')+'【途中経過（未完了）】\n'+wip.map(([k,x])=>line(x,kGet(k),'メモ')).join('\n')+'\n';
+    copy(t.trim())};
+  const lc=$('#lgCp');if(lc)lc.onclick=()=>copy('【対処の記録】\n'+logs.map(l=>line((l.v?'(済) ':'')+l.x,l,'対処')).join('\n'));
+  const lz=$('#lgClr');if(lz)lz.onclick=()=>{if(!confirm('対処の記録をすべて消しますか？'))return;db.kkLog.forEach(l=>{if(!l.deleted){l.deleted=true;touch(l)}});commit()};
+  m.querySelectorAll('[data-lg]').forEach(b=>b.onclick=()=>{const l=db.kkLog.find(x=>x.id===b.dataset.lg);if(l){l.deleted=true;touch(l);commit()}});
+  m.querySelectorAll('[data-kc]').forEach(b=>b.onclick=()=>kkComment(b.dataset.kc));
   const q=$('#kQ');if(q)q.oninput=e=>{S.kq=e.target.value;rKK(m);const k=$('#kQ');k.focus();k.setSelectionRange(k.value.length,k.value.length)};
   m.querySelectorAll('[data-j]').forEach(c=>c.onclick=()=>{const t=document.getElementById(c.dataset.j);if(t)window.scrollTo({top:t.getBoundingClientRect().top+scrollY-60,behavior:'smooth'})});
-  m.querySelectorAll('[data-kk]').forEach(c=>c.onchange=()=>{db.kkChecks[c.dataset.kk]={v:c.checked,t:now()};commitQuiet();const p=c.closest('tr,li');if(p)p.classList.toggle('dn',c.checked);
-    const b=$('#kkCp');const n=kkKeys.filter(([k])=>isChk(k)).length;b.textContent='済の項目をコピー（'+n+'件）';b.disabled=!n});
+  const kmap=Object.fromEntries(kkKeys);
+  m.querySelectorAll('[data-kk]').forEach(c=>c.onchange=()=>{kSet(c.dataset.kk,{v:c.checked},kmap[c.dataset.kk]);commitQuiet();const p=c.closest('tr,li');if(p)p.classList.toggle('dn',c.checked);
+    const b=$('#kkCp');const n=kkKeys.filter(([k])=>hasK(k)).length;b.textContent='済・コメントをコピー（'+n+'件）';b.disabled=!n});
+}
+// ファイルから消えた項目の「済」・コメントを「対処の記録」へ移す
+function archiveKK(txt){
+  const cur=new Set(mdRender(txt,'').keys.map(x=>x[0]));
+  for(const k of Object.keys(db.kkChecks))if(!cur.has(k)){const c=db.kkChecks[k];
+    if(c&&(c.v||c.c)&&c.x)db.kkLog.push(touch({id:uid(),x:c.x,c:c.c||'',cd:c.cd||'',v:!!c.v,at:c.t||now()}));
+    delete db.kkChecks[k]}
+}
+function kkComment(k){
+  const text=(kkKeys.find(x=>x[0]===k)||[])[1]||kGet(k).x||'';const c=kGet(k);
+  modal(`<h3>対処のコメント</h3><div class="card muted" style="white-space:pre-wrap">${esc(text)}</div>
+  <label>どう対処したか（誰に・何を・結果）</label><textarea id="kcT" style="min-height:120px" placeholder="例：病理医に電話で確認。固有筋層あり、ヘモジデリン沈着なし。">${esc(c.c||'')}</textarea>
+  <div class="row"><div class="grow"><label>対処した日</label><input type="date" id="kcD" value="${esc(c.cd||today())}"></div>
+  <div class="grow"><label style="margin-top:28px"><input type="checkbox" id="kcV" ${c.v?'checked':''}> 済にする</label></div></div>
+  <div class="row" style="margin-top:14px">${c.c?'<button class="btn d" id="kcX">コメントを消す</button>':''}<span class="grow"></span><button class="btn" data-close>閉じる</button><button class="btn p" id="kcS">保存</button></div>`);
+  setTimeout(()=>{const t=$('#kcT');if(t)t.focus()},50);
+  $('#kcS').onclick=()=>{kSet(k,{c:$('#kcT').value.trim(),cd:$('#kcD').value,v:$('#kcV').checked},text);closeModal();commitQuiet();render();toast('保存しました')};
+  const x=$('#kcX');if(x)x.onclick=()=>{kSet(k,{c:'',cd:''},text);closeModal();commitQuiet();render()};
 }
 function copy(t){(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('コピーしました')).catch(()=>{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');toast('コピーしました')}catch(e){prompt('コピーしてください',t)}a.remove()})}
 function devName(){const u=navigator.userAgent;return /iPhone/.test(u)?'iPhone':/iPad/.test(u)?'iPad':/Android/.test(u)?'Android':/Windows/.test(u)?'Windows':/Mac/.test(u)?'Mac':'端末'}
