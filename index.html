@@ -123,6 +123,19 @@ details.log summary{cursor:pointer;font-weight:700}
 .help{font-size:14px}
 .help ol{padding-left:20px}
 .help code{background:var(--acc2);padding:0 4px;border-radius:4px;word-break:break-all}
+.pr label{display:block;font-size:13px;color:var(--sub);margin:12px 0 3px;font-weight:700}
+.rq{color:var(--red)}
+.pv{font-size:11px;font-weight:400;border:1px solid var(--line);border-radius:6px;padding:0 5px;margin-left:4px}
+.ph-h{font-size:12px;color:var(--sub);margin-top:3px}
+.pc{margin:2px 0}
+.pscn{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px}
+.pscn .btn{text-align:left;white-space:normal;padding:7px 8px;font-size:13.5px;line-height:1.35}
+.pfd summary{cursor:pointer;border:1px solid var(--line);border-radius:9px;padding:7px 10px;background:var(--card);font-size:14px}
+.pout{white-space:pre-wrap;word-break:break-word;background:var(--acc2);border-radius:9px;padding:10px;font-size:13px;max-height:340px;overflow:auto;margin:8px 0 4px;font-family:inherit}
+.pw{border-radius:9px;padding:7px 10px;font-size:13px;margin:6px 0;background:#fff4d6;color:#5a4300;border:1px solid #e8c766}
+.pw.x{background:#fde2df;color:#7a1d12;border-color:#e59a90}
+.pw.ok{background:var(--acc2);color:var(--acc);border-color:var(--acc)}
+.pbar{position:sticky;bottom:calc(62px + env(safe-area-inset-bottom));z-index:15;display:flex;gap:8px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:7px 10px;box-shadow:0 2px 8px rgba(0,0,0,.12);margin:4px 0 10px}
 #pr{display:none}
 @media print{
  @page{size:A4 landscape;margin:8mm}
@@ -162,6 +175,7 @@ details.log summary{cursor:pointer;font-weight:700}
   <button data-t="cal"><b>▦</b>予定</button>
   <button data-t="todo"><b>☑</b>TODO</button>
   <button data-t="kk"><b>≡</b>確認・進捗</button>
+  <button data-t="pr"><b>✦</b>依頼文</button>
   <button data-t="set"><b>⚙</b>設定</button>
 </nav>
 <div id="ov"><div id="md"></div></div>
@@ -190,7 +204,7 @@ const jDate=s=>{if(!s)return'';const d=pYmd(s);return (d.getMonth()+1)+'/'+d.get
 const fmtTs=t=>{const d=new Date(t);return d.getFullYear()+'/'+pad(d.getMonth()+1)+'/'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())};
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),2200)}
 
-const emptyDB=()=>({v:1,memos:[],events:[],todos:[],kkChecks:{},kkLog:[],kkMeta:null,kkMeta2:null});
+const emptyDB=()=>({v:1,memos:[],events:[],todos:[],kkChecks:{},kkLog:[],kkMeta:null,kkMeta2:null,pTpl:[]});
 let db=Object.assign(emptyDB(),lsGet(LS.data)||{});
 let cfg=Object.assign({owner:'',repo:'',token:'',weekStart:0,tokenExp:''},lsGet(LS.cfg)||{});
 let ui=Object.assign({tab:'memo',memoTag:'',todoF:'open',calView:'month'},lsGet(LS.ui)||{});
@@ -267,7 +281,7 @@ async function putFile(path,text,sha,msg){
 function mergeDB(a,b){
   const out=emptyDB();
   const lim=now()-90*864e5; // 削除から90日経った記録は掃除
-  for(const k of ['memos','events','todos','kkLog']){
+  for(const k of ['memos','events','todos','kkLog','pTpl']){
     const m=new Map();
     for(const x of (b[k]||[]))m.set(x.id,x);
     for(const x of (a[k]||[])){const y=m.get(x.id);if(!y||(x.updatedAt||0)>=(y.updatedAt||0))m.set(x.id,x)}
@@ -337,12 +351,12 @@ function render(){
   const m=$('#main');
   const keep=document.activeElement&&document.activeElement.id;
   const val=keep&&document.activeElement.value;
-  ({memo:rMemo,cal:rCal,todo:rTodo,kk:rKK,set:rSet}[ui.tab]||rMemo)(m);
+  ({memo:rMemo,cal:rCal,todo:rTodo,kk:rKK,pr:rPr,set:rSet}[ui.tab]||rMemo)(m);
   if(keep){const el=document.getElementById(keep);if(el&&el.tagName!=='BUTTON'){el.focus();if(val!=null&&el.value!==val&&el.type!=='checkbox')el.value=val}}
 }
 
 /* ---- 版の確認（GitHub Pagesの古い写しが出ていないか） ---- */
-const APP_VER='2026-10-25f';let newVer='';
+const APP_VER='2026-10-26';let newVer='';
 async function checkVer(){
   if(!/^https?:/.test(location.protocol))return;
   try{const r=await fetch(location.pathname+'?nc='+Date.now(),{cache:'no-store'});const t=await r.text();
@@ -730,6 +744,306 @@ function kkComment(k){
 function copy(t){(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('コピーしました')).catch(()=>{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');toast('コピーしました')}catch(e){prompt('コピーしてください',t)}a.remove()})}
 function devName(){const u=navigator.userAgent;return /iPhone/.test(u)?'iPhone':/iPad/.test(u)?'iPad':/Android/.test(u)?'Android':/Windows/.test(u)?'Windows':/Mac/.test(u)?'Mac':'端末'}
 
+/* ---- 依頼文（Claudeへのプロンプトを組み立てる） ---- */
+/* 本文・患者背景・原文などの下書きは、この端末の中だけに保存（同期しない）。ひな形は本文を除いて同期する */
+const P_ENV=[
+  ['home','自宅PC'],['work','職場PC（自分専用）'],['iphone','iPhone'],['ipad','iPad'],['atab','Androidタブレット'],['aphone','Androidスマホ']];
+const P_BOOKS={home:'D:\\1,books\\',work:'D:\\1_books\\'};
+const P_FOLD=[['books','蔵書（books）'],['proj','D:\\7.claude_projects\\'],['docs','D:\\4_documents\\'],['video','D:\\2_video\\']];
+const P_BUNYA=['010_頻用','101_規約','110_GL','120_問題集','130_読本','200_消化管','210_食道','220_胃','231_肝胆膵','232_肝','233_胆','234_膵','240_大腸','241_小腸','250_肛門','260_ヘルニア','270_乳腺','280_他臓器','300_外科総論','400_腫瘍','401_病理','410_CTRX','420_緩和','501_手術','502_解剖','503_手技','511_救急','512_急性腹症','513_ICU','520_周術期','530_栄養','540_麻酔','610_内視鏡','620_CT_MRI','630_LD','640_US','650_検査その他','700_薬剤','810_内科','820_他科','830_感染症','910_その他'];
+const P_PROJ=['01 カルテ入力支援','02 書籍参照システム','03 手術反省会','04 術式まとめ','05 症例報告ワークフロー','06 女子美過去問プリント','07 メモ・スケジュール帖','08 PDFビューアー','100 論文作成ベース','200 定期テスト対策','300 漢字テスト対策','蔵書（しおり・OCR・新規追加）','料理索引','分野別プロジェクト'];
+const P_POS=['術者・執刀医','助手','指導する立場','主治医（病棟）','がん薬物療法の担当','当直・救急対応','カンファの発表者','論文・研究','後輩への説明','患者・家族への説明','個人（臨床外）','親・保護者'];
+const P_OUT=['おまかせ','チャットで可','Markdown（UpNote貼り付け）','Word（.docx）','Excel（.xlsx）','PowerPoint（.pptx）','PDF','Artifact（他の端末で見る・共有）','HTMLツール'];
+const P_HOW=[
+  ['結論から','結論を先に書く'],
+  ['反対の根拠も','結論に反するエビデンス・反論も探して示す'],
+  ['Webで最新確認','承認・保険適用・ガイドライン改訂・新しい試験はWebで最新を確認する'],
+  ['Web不要','Web検索はしなくてよい（学習済みの知識で可。その旨を明示）'],
+  ['まず方針案','いきなり作らず、まず方針案（構成・手順）を示して確認を取る'],
+  ['段階ごとに確認','段階ごとに区切り、各段階の終わりで確認を取る'],
+  ['別エージェントで検証','仕上げ前に、作成に関わっていない別のエージェントに出典・数値を照合させる'],
+  ['解釈を1行で','作業の前に、この依頼をどう解釈したかを1行で書く']];
+const P_UNK=[['先に質問','不明点は推測で埋めず、先に質問する（最大3問）'],['仮定して進める','不明点は仮定を明示して進め、仮定の一覧を最後に示す'],['おまかせ','']];
+const P_LEN=[['短答','短く（結論と要点だけ）'],['標準',''],['詳しく','詳しく（網羅的に）']];
+
+/* 項目の型：ta=複数行 tx=1行 sel=1つ選ぶ multi=複数選ぶ fld=分野
+   req=必須 priv=個人情報が入りうる（同期・ひな形に入れない、点検する） sec=出力の見出し */
+const P_SCENES=[
+ {id:'clin',ic:'🩺',name:'臨床疑問',
+  def:{how:['反対の根拠も','Webで最新確認'],out:'チャットで可'},
+  f:[
+  {k:'kata',l:'検討の型',t:'sel',o:['おまかせ','01 薬剤・治療法','02 手術症例（術前〜術後）','03 術中技術・トラブル即引き','04 稀少症例の文献検索','なし（一般的な質問）'],sec:'how',h:'迷ったら「おまかせ」。03は短く速く答える型'},
+  {k:'bunya',l:'分野（最大3つ）',t:'fld',sec:'ref',h:'蔵書の分野フォルダ。迷えば 010_頻用'},
+  {k:'q',l:'決めたいこと',t:'ta',req:1,priv:1,main:1,sec:'body',ph:'例：S状結腸癌術後Stage IIIの80代に、CAPOXとカペシタビン単剤のどちらを勧めるか',h:'問いは1つに絞り、「何を決めたいか」の形で書く'},
+  {k:'pt',l:'患者背景（匿名化）',t:'ta',priv:1,sec:'pre',ph:'70代男性／PS 1／eGFR 45／DOAC内服／既往：… 経過はDay表記で',h:'氏名・ID・生年月日・実際の日付は書かない。判断を左右する条件（腎・肝機能、抗血栓薬、PS）を先に'},
+  {k:'axis',l:'判断の軸',t:'multi',o:['承認・保険適用','国内ガイドライン','RCT・メタ解析','手技のコツ','合併症・リスク','費用・算定','患者への説明'],sec:'pre',h:'どの観点で比べるか'},
+  {k:'fac',l:'施設の条件',t:'tx',sec:'pre',ph:'ロボットあり／○○は院内採用なし／施設基準 など'},
+  {k:'ver',l:'版・年の指定',t:'tx',sec:'pre',ph:'大腸癌治療GL 最新版で／取扱い規約 第9版',h:'ガイドラインや規約は版で内容が変わる'},
+  {k:'scope',l:'範囲・除外',t:'tx',sec:'pre',ph:'内視鏡治療は除く／保険適用内に限る'},
+  {k:'mat',l:'手元の資料',t:'tx',sec:'pre',ph:'添付の論文、書名と頁、院内レジメン',h:'原文・原本を渡すと正確になる'},
+  {k:'urg',l:'緊急度',t:'sel',o:['今すぐ（術中・当直）','今日中','数日以内','急がない'],sec:'pre'}]},
+ {id:'case',ic:'🗂',name:'症例報告',
+  def:{how:['段階ごとに確認']},
+  f:[
+  {k:'stage',l:'段階',t:'sel',req:1,o:['候補の整理','新しい症例フォルダを作る','続きから','投稿前の校正'],sec:'body'},
+  {k:'id',l:'症例（フォルダ名・番号）',t:'tx',sec:'body',ph:'101 直腸盲端'},
+  {k:'q',l:'今回やってほしいこと',t:'ta',main:1,priv:1,sec:'body',ph:'考察の骨子を作りたい／既報一覧の更新'},
+  {k:'point',l:'学びのポイント（仮）',t:'ta',sec:'pre'},
+  {k:'journal',l:'投稿先の候補',t:'tx',sec:'pre',ph:'BMJ Case Reports'}]},
+ {id:'paper',ic:'📄',name:'論文の要約・吟味',hide:['purpose'],
+  def:{how:['結論から']},
+  f:[
+  {k:'id',l:'論文',t:'tx',req:1,sec:'body',ph:'PMID／DOI／題名（PDFを添付するならその旨）',h:'記憶に頼らせず、論文そのものを特定する'},
+  {k:'why',l:'要約の目的',t:'sel',req:1,o:['抄読会','診療の判断','自分の論文に引用','概要の把握','査読'],sec:'body'},
+  {k:'items',l:'必要な項目',t:'multi',o:['PICO','主要評価項目の数値（HR・95%CI）','副次評価項目','有害事象','研究の限界','資金・利益相反','批判的吟味','日本の承認・保険との突き合わせ','自分の患者への当てはめ','関連する他の試験'],sec:'pre'},
+  {k:'q',l:'特に知りたいこと',t:'ta',main:1,sec:'body'}]},
+ {id:'doc',ic:'📝',name:'文書作成',hide:['purpose'],
+  def:{how:['まず方針案']},
+  f:[
+  {k:'kind',l:'文書の種類',t:'tx',req:1,sec:'body',ph:'申請書／院内文書／抄録／依頼状／説明書'},
+  {k:'reader',l:'読む人・提出先',t:'tx',req:1,sec:'body',ph:'病院長／学会事務局／前医の先生'},
+  {k:'act',l:'読んだ人にしてほしいこと',t:'tx',sec:'body',ph:'承認してほしい／資料を送ってほしい',h:'文書の目的が1行で言えると構成が決まる'},
+  {k:'q',l:'内容・伝えたいこと',t:'ta',main:1,priv:1,sec:'body'},
+  {k:'fmt',l:'様式・字数・締切',t:'tx',sec:'pre',ph:'A4 1枚／800字以内／11月10日締切'},
+  {k:'tone',l:'文体',t:'sel',o:['である調','ですます調','英語','おまかせ'],sec:'pre'},
+  {k:'src',l:'元にする資料・メモ',t:'ta',priv:1,sec:'pre'},
+  {k:'must',l:'必ず入れる点／避ける点',t:'ta',sec:'pre'}]},
+ {id:'lang',ic:'🔤',name:'英文・翻訳・言葉',hide:['purpose'],
+  def:{},
+  f:[
+  {k:'dir',l:'何をするか',t:'sel',req:1,o:['英→日 翻訳','日→英 翻訳','意味・ニュアンスの解釈','英文の校正','言い換え案'],sec:'body'},
+  {k:'src',l:'原文',t:'ta',req:1,priv:1,main:1,sec:'body',ph:'原文をそのまま貼る（要約しない）'},
+  {k:'use',l:'用途',t:'sel',req:1,o:['論文投稿','査読への回答','メール','学会発表','読解のみ'],sec:'pre'},
+  {k:'to',l:'相手・丁寧さ',t:'tx',sec:'pre',ph:'海外の編集者、初めての連絡、丁寧に'},
+  {k:'lit',l:'訳し方',t:'sel',o:['直訳寄り','意訳寄り','おまかせ'],sec:'pre'},
+  {k:'term',l:'用語・表記の方針',t:'tx',sec:'pre',ph:'米国綴り／略語は初出で展開'}]},
+ {id:'proj',ic:'🛠',name:'新しいプロジェクト・アプリ',
+  def:{how:['まず方針案'],unk:'先に質問'},
+  f:[
+  {k:'name',l:'名前（仮）',t:'tx',sec:'body'},
+  {k:'q',l:'解決したい困りごと',t:'ta',req:1,main:1,sec:'body',ph:'今は○○に毎回△分かかる／□□を忘れる',h:'作りたい物より、困っていることを書くと良い設計になりやすい'},
+  {k:'users',l:'使う人',t:'sel',o:['自分だけ','家族','科内の医師','多職種（〜10人）','公開'],sec:'pre'},
+  {k:'plat',l:'動かす環境',t:'multi',req:1,o:['病院PC（Win10・Edge・古いOffice）','自宅PC','職場PC（自分専用）','iPhone','iPad','Android','GitHub Pages'],sec:'pre'},
+  {k:'data',l:'扱うデータ',t:'sel',req:1,o:['個人情報なし','匿名化済み（通し番号・Day表記）','個人情報あり（院内のみで扱う）'],sec:'pre'},
+  {k:'v1',l:'最初の版でやること',t:'ta',sec:'pre'},
+  {k:'notv1',l:'やらないこと（後回し）',t:'tx',sec:'pre'},
+  {k:'done',l:'完成とみなす条件',t:'tx',sec:'pre',ph:'スマホで3タップ以内に入力できる'},
+  {k:'ref',l:'参考・元データ',t:'tx',sec:'pre',ph:'似たツール、CSVの列見出し'},
+  {k:'cons',l:'制約',t:'tx',sec:'pre',ph:'インストール不可／オフライン必須／A4印刷'}]},
+ {id:'fix',ic:'🔧',name:'既存ツールの修正・改良',
+  def:{bk:'_backupに残す'},
+  f:[
+  {k:'tgt',l:'対象（プロジェクト・ファイル・版）',t:'tx',req:1,sec:'body',ph:'07 メモ帖 index.html v2026-10-26'},
+  {k:'q',l:'変えたいこと・困りごと',t:'ta',req:1,main:1,sec:'body'},
+  {k:'repro',l:'不具合の再現',t:'ta',sec:'pre',ph:'端末：Android／操作：予定を複製／結果：日付がずれる／本来：同じ日',h:'端末→操作→結果→本来どうなるべきか'},
+  {k:'keep',l:'変えてはいけないこと',t:'tx',sec:'pre'},
+  {k:'bk',l:'旧版の扱い',t:'sel',o:['_backupに残す','残さなくてよい'],sec:'pre'}]},
+ {id:'file',ic:'📚',name:'蔵書・ファイル整理',
+  def:{trial:'1件試してから一括',orig:'残す'},
+  f:[
+  {k:'proc',l:'既定の手順',t:'sel',o:['しおりを既定の通り','新規追加を処理','OCRの点検','なし（今回決める）'],sec:'body'},
+  {k:'tgt',l:'対象フォルダ',t:'tx',req:1,sec:'body',ph:'0.分野別統合\\233_胆'},
+  {k:'q',l:'やりたいこと',t:'ta',req:1,main:1,sec:'body'},
+  {k:'orig',l:'元ファイル',t:'sel',req:1,o:['残す','確認後に消す','_to_deleteへ移す'],sec:'pre'},
+  {k:'name',l:'命名規則',t:'tx',sec:'pre'},
+  {k:'trial',l:'進め方',t:'sel',o:['1件試してから一括','いきなり一括でよい'],sec:'pre'}]},
+ {id:'look',ic:'🔎',name:'調べもの（臨床外）',
+  def:{how:['Webで最新確認']},
+  f:[
+  {k:'q',l:'調べたいこと',t:'ta',req:1,main:1,sec:'body'},
+  {k:'cond',l:'条件',t:'tx',sec:'pre',ph:'地域・予算・期間・対象年齢'},
+  {k:'cmp',l:'比べる軸',t:'tx',sec:'pre'},
+  {k:'src2',l:'信頼したい情報源',t:'tx',sec:'pre',ph:'公式サイト優先'}]},
+ {id:'other',ic:'💬',name:'その他',
+  def:{},
+  f:[{k:'q',l:'依頼',t:'ta',req:1,main:1,priv:1,sec:'body'}]}
+];
+/* 全場面に共通の項目 */
+const P_COMMON=[
+  {k:'purpose',l:'目的・使い道',t:'tx',sec:'pre',ph:'明日の術前カンファで説明する／査定対策の根拠に',h:'何に使うかで答えの深さと形が決まる'},
+  {k:'pos',l:'自分の立ち位置',t:'sel',o:P_POS,sec:'pre'},
+  {k:'out',l:'求める成果物の形',t:'sel',o:P_OUT,sec:'out'},
+  {k:'len',l:'長さ',t:'sel',o:P_LEN.map(x=>x[0]),sec:'out'},
+  {k:'kodawari',l:'こだわりポイント',t:'ta',priv:1,sec:'out',ph:'必ず入れてほしい点／避けたい表現／前回の不満点'},
+  {k:'ex',l:'見本・参考にしたい例',t:'ta',priv:1,sec:'out',ph:'以前うまくいった回答の一部、まねしたい書式',h:'形式は言葉で説明するより、例を1つ見せるほうが確実'},
+  {k:'proj',l:'関連するプロジェクト',t:'multi',o:P_PROJ,sec:'ref'},
+  {k:'prev',l:'以前のチャット・質問',t:'tx',sec:'ref',ph:'チャット名や時期、内容の手がかり（例：10月の「医療システム開発プロジェクト計画」）'},
+  {k:'fold',l:'追加で見るフォルダ',t:'multi',o:P_FOLD.map(x=>x[1]),sec:'ref'},
+  {k:'fold2',l:'フォルダ・ファイル（自由記載）',t:'tx',sec:'ref',ph:'D:\\7.claude_projects\\05_症例報告ワークフロー\\101_…'},
+  {k:'unk',l:'不明点の扱い',t:'sel',o:P_UNK.map(x=>x[0]),sec:'how'},
+  {k:'how',l:'進め方',t:'multi',o:P_HOW.map(x=>x[0]),sec:'how'}];
+
+const LSP={d:'msb.pdraft',h:'msb.phist'};
+let PD=Object.assign({scene:'',env:'',f:{},cs:{}},lsGet(LSP.d)||{});delete PD.c;
+if(!PD.env)PD.env=cfg.pEnv||'';
+const pSave=()=>lsSet(LSP.d,PD);
+const pScene=()=>P_SCENES.find(s=>s.id===PD.scene);
+const pF=s=>(PD.f[s.id]=PD.f[s.id]||{});
+const pC=()=>(PD.cs[PD.scene]=PD.cs[PD.scene]||{});
+function pFields(s){return {own:s.f,com:P_COMMON.filter(x=>!(s.hide||[]).includes(x.k))}}
+function pVal(s,fd,isCom){const o=isCom?pC():pF(s);return o[fd.k]}
+function pEmpty(v){return v==null||v===''||(Array.isArray(v)&&!v.length)}
+
+function pInput(s,fd,isCom){
+  const v=pVal(s,fd,isCom);const id='pf_'+(isCom?'c_':'s_')+fd.k;
+  const lab=`<label for="${id}">${esc(fd.l)}${fd.req?' <span class="rq">★</span>':''}${fd.priv?' <span class="pv" title="この欄は同期しません">端末内のみ</span>':''}</label>`;
+  const hint=fd.h?`<div class="ph-h">${esc(fd.h)}</div>`:'';
+  const data=`data-k="${fd.k}" data-c="${isCom?1:0}"`;
+  if(fd.t==='ta')return lab+`<textarea id="${id}" ${data} placeholder="${esc(fd.ph||'')}" ${fd.main?'style="min-height:110px"':''}>${esc(v||'')}</textarea>`+hint;
+  if(fd.t==='tx')return lab+`<input type="text" id="${id}" ${data} placeholder="${esc(fd.ph||'')}" value="${esc(v||'')}">`+hint;
+  if(fd.t==='sel'||fd.t==='multi'){
+    let opts=fd.o;let note='';
+    if(fd.k==='fold'){if(!P_BOOKS[PD.env])note='<div class="ph-h">タブレット・スマホではPCのフォルダは使えません（プロジェクトのナレッジとWeb検索になります）</div>'}
+    const arr=fd.t==='multi'?(v||[]):[v];
+    return lab+`<div class="chips pc">${opts.map(o=>`<span class="chip ${arr.includes(o)?'on':''}" ${data} data-o="${esc(o)}" data-m="${fd.t==='multi'?1:0}">${esc(o)}</span>`).join('')}</div>`+hint+note;
+  }
+  if(fd.t==='fld'){
+    const arr=v||[];
+    return lab+`<details class="pfd" ${S.pFld?'open':''}><summary>${arr.length?arr.map(esc).join('、'):'選ぶ（未選択ならClaudeが判断）'}</summary><div class="chips pc">${P_BUNYA.map(o=>`<span class="chip ${arr.includes(o)?'on':''}" ${data} data-o="${esc(o)}" data-m="2">${esc(o)}</span>`).join('')}</div></details>`+hint;
+  }
+  return '';
+}
+
+function rPr(m){
+  const s=pScene();
+  const tpls=live(db.pTpl||[]).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  let h=`<div class="card"><h2 style="margin-top:0">Claudeへの依頼文を作る</h2>
+  <label>入力している環境 <span class="rq">★</span><span class="muted">（この端末で記憶）</span></label>
+  <div class="chips pc">${P_ENV.map(e=>`<span class="chip ${PD.env===e[0]?'on':''}" data-env="${e[0]}">${esc(e[1])}</span>`).join('')}</div>
+  <label>依頼の種類 <span class="rq">★</span></label>
+  <div class="pscn">${P_SCENES.map(x=>`<button class="btn ${PD.scene===x.id?'p':''}" data-scn="${x.id}">${x.ic} ${esc(x.name)}</button>`).join('')}</div>
+  ${tpls.length?`<label>ひな形から始める</label><div class="chips">${tpls.map(t=>`<span class="chip" data-tpl="${t.id}">${esc(t.name)}</span>`).join('')}</div>`:''}
+  </div>`;
+  if(!s){m.innerHTML='<div class="pr">'+h+`<p class="muted">種類を選ぶと、その場面に合った入力欄が出ます。空欄の項目は依頼文に入りません。</p>`+pHistHtml()+'</div>';bindPr(m);return}
+  const {own,com}=pFields(s);
+  h+=`<div class="card"><h2 style="margin-top:0">${s.ic} ${esc(s.name)}の内容</h2>${own.map(fd=>pInput(s,fd,false)).join('')}</div>
+  <div class="card"><h2 style="margin-top:0">成果物・関連・進め方</h2>${com.map(fd=>pInput(s,fd,true)).join('')}</div>
+  <div class="card" id="pOutC"><h2 style="margin-top:0">点検とコピー</h2><div id="pChk"></div>
+  <pre class="pout" id="pOut"></pre><div class="muted" id="pLen"></div>
+  <div class="row" style="margin-top:8px"><button class="btn p" id="pCp">📋 依頼文をコピー</button><button class="btn" id="pTs">ひな形として保存</button><span class="grow"></span><button class="btn d" id="pClr">この種類の入力を消す</button></div>
+  <p class="muted">コピーしたらClaudeの入力欄に貼り付けて送信。本文・患者背景・原文・こだわり・見本はこの端末だけに保存し、同期しません。</p></div>
+  <div class="pbar"><span id="pBarT" class="grow muted"></span><button class="btn p s" id="pCp2">📋 コピー</button></div>`;
+  m.innerHTML='<div class="pr">'+h+pHistHtml()+'</div>';
+  bindPr(m);pUpd();
+}
+function pHistHtml(){
+  const hs=lsGet(LSP.h)||[];if(!hs.length)return '';
+  return `<details class="card log"><summary>最近コピーした依頼文（この端末・${hs.length}件）</summary>${hs.map((x,i)=>`<div class="item"><div class="grow"><div class="muted">${fmtTs(x.t)}　${esc(x.n)}</div><div class="memo-t" style="font-size:13px">${esc(x.text.slice(0,140))}${x.text.length>140?'…':''}</div></div><div class="acts" style="margin:0;flex-direction:column"><button class="btn s" data-hc="${i}">コピー</button><button class="btn s d" data-hd="${i}">削除</button></div></div>`).join('')}</details>`;
+}
+function bindPr(m){
+  m.querySelectorAll('[data-env]').forEach(c=>c.onclick=()=>{PD.env=c.dataset.env;cfg.pEnv=PD.env;lsSet(LS.cfg,cfg);pSave();rPr(m)});
+  m.querySelectorAll('[data-scn]').forEach(b=>b.onclick=()=>{
+    PD.scene=b.dataset.scn;const s=pScene();
+    for(const [k,v] of Object.entries(s.def||{})){
+      if(P_COMMON.some(x=>x.k===k)){if(pEmpty(pC()[k]))pC()[k]=Array.isArray(v)?[...v]:v}
+      else if(pEmpty(pF(s)[k]))pF(s)[k]=v;
+    }
+    pSave();rPr(m)});
+  m.querySelectorAll('[data-tpl]').forEach(c=>c.onclick=()=>pLoadTpl(c.dataset.tpl,m));
+  m.querySelectorAll('textarea[data-k],input[data-k]').forEach(el=>el.oninput=()=>{
+    const s=pScene();(el.dataset.c==='1'?pC():pF(s))[el.dataset.k]=el.value;pSave();pUpd()});
+  m.querySelectorAll('.chip[data-k]').forEach(c=>c.onclick=()=>{
+    const s=pScene();const o=c.dataset.c==='1'?pC():pF(s);const k=c.dataset.k,v=c.dataset.o,mm=c.dataset.m;
+    if(mm==='0')o[k]=o[k]===v?'':v;
+    else{const a=o[k]||[];const i=a.indexOf(v);if(i>=0)a.splice(i,1);else{if(mm==='2'&&a.length>=3){toast('分野は3つまで');return}a.push(v)}o[k]=a}
+    if(mm==='2')S.pFld=true;
+    pSave();const y=window.scrollY;rPr(m);window.scrollTo(0,y)});
+  m.querySelectorAll('details.pfd').forEach(d=>d.ontoggle=()=>{S.pFld=d.open});
+  const cp=()=>{const r=pBuild();const ck=pCheck();
+    if(ck.priv.length&&!confirm('個人情報らしい記載があります：\n'+ck.priv.join('\n')+'\n\nこのままコピーしますか？'))return;
+    copy(r);const hs=lsGet(LSP.h)||[];hs.unshift({t:now(),n:pScene().name,text:r});lsSet(LSP.h,hs.slice(0,20))};
+  if($('#pCp')){$('#pCp').onclick=cp;$('#pCp2').onclick=cp;
+    $('#pClr').onclick=()=>{if(!confirm('この種類の入力欄と共通欄を空にしますか？'))return;PD.f[PD.scene]={};PD.cs[PD.scene]={};pSave();rPr(m)};
+    $('#pTs').onclick=pSaveTpl;}
+  m.querySelectorAll('[data-hc]').forEach(b=>b.onclick=()=>{const hs=lsGet(LSP.h)||[];copy(hs[+b.dataset.hc].text)});
+  m.querySelectorAll('[data-hd]').forEach(b=>b.onclick=()=>{const hs=lsGet(LSP.h)||[];hs.splice(+b.dataset.hd,1);lsSet(LSP.h,hs);rPr(m)});
+}
+function pStrip(s,o,isCom){const r={};const list=isCom?P_COMMON:s.f;for(const fd of list){if(fd.priv||pEmpty(o[fd.k]))continue;r[fd.k]=Array.isArray(o[fd.k])?[...o[fd.k]]:o[fd.k]}return r}
+function pSaveTpl(){
+  const s=pScene();
+  modal(`<h3>ひな形として保存</h3><p class="muted">選んだ項目・1行の欄を保存し、全端末で使えます（本文・患者背景・原文・こだわり・見本は保存しません）。</p>
+  <label>名前</label><input type="text" id="tN" value="${esc(s.name)}：">
+  <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn" data-close>閉じる</button><button class="btn p" id="tS">保存</button></div>
+  ${live(db.pTpl||[]).length?`<h3 style="margin-top:16px">保存済みのひな形</h3>${live(db.pTpl).map(t=>`<div class="row" style="margin:4px 0"><span class="grow">${esc(t.name)}</span><button class="btn s d" data-td="${t.id}">削除</button></div>`).join('')}`:''}`);
+  $('#tS').onclick=()=>{const n=$('#tN').value.trim();if(!n){toast('名前を入れてください');return}
+    db.pTpl=db.pTpl||[];db.pTpl.push(touch({id:uid(),name:n,scene:s.id,f:pStrip(s,pF(s),false),c:pStrip(s,pC(),true),env:'',createdAt:now()}));closeModal();commit();toast('ひな形を保存しました')};
+  $('#md').querySelectorAll('[data-td]').forEach(b=>b.onclick=()=>{const t=db.pTpl.find(x=>x.id===b.dataset.td);if(t&&confirm('「'+t.name+'」を削除しますか？')){t.deleted=true;touch(t);commitQuiet();b.parentNode.remove()}});
+}
+function pLoadTpl(id,m){
+  const t=(db.pTpl||[]).find(x=>x.id===id);if(!t)return;
+  const s=P_SCENES.find(x=>x.id===t.scene);if(!s)return;
+  PD.scene=s.id;const keep={};for(const fd of s.f)if(fd.priv&&!pEmpty(pF(s)[fd.k]))keep[fd.k]=pF(s)[fd.k];
+  const keepC={};for(const fd of P_COMMON)if(fd.priv&&!pEmpty(pC()[fd.k]))keepC[fd.k]=pC()[fd.k];
+  PD.f[s.id]=Object.assign(JSON.parse(JSON.stringify(t.f||{})),keep);PD.cs[s.id]=Object.assign(JSON.parse(JSON.stringify(t.c||{})),keepC);
+  pSave();rPr(m);toast('「'+t.name+'」を読み込みました');
+}
+/* 個人情報らしい記載・抜けの点検 */
+function pCheck(){
+  const s=pScene();const miss=[],priv=[],tips=[];
+  if(!PD.env)miss.push('入力している環境');
+  const {own,com}=pFields(s);
+  for(const fd of own)if(fd.req&&pEmpty(pF(s)[fd.k]))miss.push(fd.l);
+  const txt=[...own.filter(f=>f.priv).map(f=>pF(s)[f.k]),...com.filter(f=>f.priv).map(f=>pC()[f.k])].filter(Boolean).join('\n');
+  const R=[[/(氏名|生年月日|患者ID|カルテ番号|住所|電話番号)/,'「氏名・生年月日・ID・住所」などの語'],[/(19|20)\d{2}\s*[\/年.\-]\s*\d{1,2}\s*[\/月.\-]\s*\d{1,2}/,'実際の日付（Day表記に）'],[/(昭和|平成|令和)\s*\d+\s*年/,'和暦の日付'],[/(^|[^\d.])\d{7,}(?!\d)/,'7桁以上の番号（ID？）']];
+  for(const [re,l] of R)if(re.test(txt))priv.push('・'+l);
+  const nm=(txt.match(/[一-龥ぁ-んァ-ヶ]{1,5}(様|さん|殿|先生)/g)||[]).filter(x=>!/(同様|多様|模様|仕様|異様|態様|一様|各様|皆様|皆さん|患者さん|患者様|家族様|ご家族|奥様|お子さん|主治医の先生|前医の先生)$/.test(x));
+  if(nm.length)priv.push('・人名らしい記載：'+[...new Set(nm)].slice(0,3).join('、'));
+  const main=own.find(f=>f.main);const mv=main&&pF(s)[main.k];
+  if(mv&&mv.trim().length<15)tips.push('本文が短めです。何を決めたい・作りたいのかを1文で');
+  if(s.id==='clin'){const f=pF(s);if(pEmpty(f.pt)&&!(f.kata||'').startsWith('04'))tips.push('患者背景がないと一般論の答えになります（匿名化して判断に効く条件だけでも）');
+    if(pEmpty(pC().purpose))tips.push('目的（カンファ用・説明用・自分の判断用など）があると深さが合います')}
+  if(pEmpty(pC().out))tips.push('成果物の形が未選択（Claudeにおまかせになります）');
+  if((pC().how||[]).includes('Web不要')&&(pC().how||[]).includes('Webで最新確認'))tips.push('進め方の「Web不要」と「Webで最新確認」が両方選ばれています');
+  if(P_BOOKS[PD.env]===undefined&&PD.env&&(pC().fold||[]).length)tips.push('この環境ではPCのフォルダは使えません');
+  return {miss,priv,tips};
+}
+function pUpd(){
+  if(!$('#pOut'))return;
+  const r=pBuild();const ck=pCheck();
+  $('#pOut').textContent=r;$('#pLen').textContent=r.length+'字';
+  $('#pChk').innerHTML=(ck.miss.length?`<div class="pw x">★未入力：${ck.miss.map(esc).join('、')}</div>`:'')+
+    (ck.priv.length?`<div class="pw x">個人情報らしい記載：<br>${ck.priv.map(esc).join('<br>')}</div>`:'')+
+    (ck.tips.length?`<div class="pw">${ck.tips.map(t=>'・'+esc(t)).join('<br>')}</div>`:'')+
+    (!ck.miss.length&&!ck.priv.length&&!ck.tips.length?'<div class="pw ok">✓ 抜けはありません</div>':'');
+  $('#pBarT').textContent=ck.miss.length?'★未入力 '+ck.miss.length+'件':ck.priv.length?'個人情報の点検あり':'✓ コピーできます';
+}
+/* 依頼文を組み立てる（空欄は出さない） */
+function pBuild(){
+  const s=pScene();if(!s)return '';
+  const {own,com}=pFields(s);const f=pF(s),c=pC();
+  const sec={body:[],pre:[],out:[],ref:[],how:[]};
+  const put=(fd,v)=>{
+    if(pEmpty(v))return;
+    let t=Array.isArray(v)?v.join('、'):String(v).trim();if(!t)return;
+    if(fd.k==='len'){t=(P_LEN.find(x=>x[0]===t)||[])[1];if(!t)return;sec.out.push('- 長さ：'+t);return}
+    if(fd.k==='unk'){t=(P_UNK.find(x=>x[0]===t)||[])[1];if(t)sec.how.push('- '+t);return}
+    if(fd.k==='how'){for(const x of v){const y=P_HOW.find(z=>z[0]===x);if(y)sec.how.push('- '+y[1])}return}
+    if(fd.k==='kata'){if(t==='おまかせ')sec.how.push('- 検討の型は内容から判断する（claude_tools\\_prompts\\ の01〜04）');
+      else if(t.startsWith('なし'))sec.how.push('- 検討の型：なし（CLAUDE.mdの規則だけで）');
+      else{const fn={'01':'01_薬剤・治療法','02':'02_手術症例','03':'03_術中技術・トラブルシューティング','04':'04_稀少症例の文献検索・既報一覧'}[t.slice(0,2)];
+        sec.how.push('- 検討の型：claude_tools\\_prompts\\'+fn+'.md を読んでから作業する'+(t.startsWith('03')?'（レポートにせず、短く速く）':''))}return}
+    if(fd.k==='fold'){for(const x of v){const k=(P_FOLD.find(z=>z[1]===x)||[])[0];
+      if(k==='books'){if(P_BOOKS[PD.env])sec.ref.push('- 追加で見るフォルダ：'+P_BOOKS[PD.env])}else sec.ref.push('- 追加で見るフォルダ：'+x)}return}
+    if(fd.k==='bunya'){sec.ref.push('- 分野：'+t+'（蔵書の分野フォルダ）');return}
+    if(fd.k==='prev'){sec.ref.push('- 以前のチャット・質問：'+t+'（過去のチャットを検索して参照する）');return}
+    if(fd.k==='proj'){sec.ref.push('- 関連するプロジェクト：'+t+'（D:\\7.claude_projects\\ の該当フォルダの00_README.mdから）');return}
+    if(s.id==='case'&&fd.k==='stage'){sec.body.push('- 段階：'+t);return}
+    if(fd.t==='ta'||t.includes('\n'))sec[fd.sec].push('**'+fd.l+'**\n'+t);
+    else sec[fd.sec].push('- '+fd.l+'：'+t);
+  };
+  for(const fd of own)put(fd,f[fd.k]);
+  for(const fd of com)put(fd,c[fd.k]);
+  if(s.id==='case')sec.how.unshift('- スキル case-report-workflow の工程で進める');
+  if(s.id==='file'&&f.proc&&!f.proc.startsWith('なし'))sec.how.unshift('- claude_tools\\CLAUDE.md の「書籍PDFの作業」にある既定の手順に従う');
+  const envL=(P_ENV.find(e=>e[0]===PD.env)||[])[1];
+  if(envL){if(P_BOOKS[PD.env])sec.ref.unshift(`- 入力している環境：${envL}（蔵書は ${P_BOOKS[PD.env]}、プロジェクトは D:\\7.claude_projects\\。接続されていれば使う）`);
+    else sec.ref.unshift(`- 入力している環境：${envL}（PCのフォルダには接続していない。プロジェクトのナレッジとWeb検索で対応し、成果物はチャットかArtifactで）`)}
+  const H={body:'依頼の本文',pre:'前提・条件',out:'求める成果物',ref:'参照先・関連',how:'進め方'};
+  let r=`# 依頼：${s.name}\n`;
+  for(const k of ['body','pre','out','ref','how'])if(sec[k].length)r+=`\n## ${H[k]}\n`+sec[k].join('\n')+'\n';
+  return r.trim()+'\n';
+}
+
 /* ---- 設定 ---- */
 function rSet(m){
   m.innerHTML=`
@@ -740,7 +1054,7 @@ function rSet(m){
   <label class="muted">トークンの期限（30日前から画面上部に警告を出します）</label><input type="date" id="cP" value="${esc(cfg.tokenExp||'')}">
   <div class="row" style="margin-top:10px"><button class="btn p" id="cS">保存して接続</button><button class="btn" id="cX">この端末から設定を消す</button></div>
   <p class="muted">トークンはこの端末のブラウザ内にだけ保存されます。紛失・機種変更時はGitHubでトークンを削除すれば無効になります。</p></div>
-  <div class="card"><h2 style="margin-top:0">アプリの版</h2><p style="margin:0">v${APP_VER}<span class="muted">（「確認・進捗」タブがあるのは v2026-10-25e 以降）</span></p><div class="row" style="margin-top:8px"><button class="btn s" id="vRl">最新版を読み込み直す</button></div></div>
+  <div class="card"><h2 style="margin-top:0">アプリの版</h2><p style="margin:0">v${APP_VER}<span class="muted">（「依頼文」タブがあるのは v2026-10-26 以降）</span></p><div class="row" style="margin-top:8px"><button class="btn s" id="vRl">最新版を読み込み直す</button></div></div>
   <div class="card"><h2 style="margin-top:0">表示</h2>
   <label class="muted">週の始まり</label><select id="cW"><option value="0" ${+cfg.weekStart===0?'selected':''}>日曜</option><option value="1" ${+cfg.weekStart===1?'selected':''}>月曜</option></select></div>
   <div class="card"><h2 style="margin-top:0">バックアップ</h2>
