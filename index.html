@@ -100,6 +100,9 @@ h2{font-size:16px;margin:16px 0 8px}
 .kk tr.cm td{border-top:0;padding-top:0}
 .kk li .cmt{margin-left:0}
 details.log summary{cursor:pointer;font-weight:700}
+.kk details.pre{border:1px solid var(--line);border-radius:9px;padding:6px 10px;margin:4px 0 12px}
+.kk details.pre summary{cursor:pointer;font-weight:700;font-size:14px}
+.kk details.pre[open] summary{margin-bottom:6px}
 @media (max-width:640px){
  .kk table,.kk tbody,.kk tr,.kk td{display:block;width:auto}
  .kk table{background:none}
@@ -356,7 +359,7 @@ function render(){
 }
 
 /* ---- 版の確認（GitHub Pagesの古い写しが出ていないか） ---- */
-const APP_VER='2026-10-26';let newVer='';
+const APP_VER='2026-10-28';let newVer='';
 async function checkVer(){
   if(!/^https?:/.test(location.protocol))return;
   try{const r=await fetch(location.pathname+'?nc='+Date.now(),{cache:'no-store'});const t=await r.text();
@@ -618,10 +621,24 @@ function mdRender(src,q){
   }
   closeUl();return {h,secs,keys};
 }
+/* ---- 冒頭（見出し1と最初の##の間：最終更新・表記・運用）を折りたたむ ---- */
+function preSplit(src){
+  const L=(src||'').replace(/\r\n?/g,'\n').split('\n');let a=0;while(a<L.length&&!L[a].trim())a++;
+  const h1=(a<L.length&&/^#\s/.test(L[a]))?a+1:a;
+  let b=L.findIndex((l,i)=>i>=h1&&/^##\s/.test(l));if(b<0)b=h1;
+  const pre=L.slice(h1,b).join('\n');if(!pre.trim())return {top:'',pre:'',body:src};
+  return {top:L.slice(0,h1).join('\n'),pre,body:L.slice(b).join('\n')};
+}
+function preBox(sp,q){
+  const top=sp.top?mdView(sp.top,'').h:'';if(!sp.pre)return top;
+  const v=mdView(sp.pre,q);if(!v.h)return top;
+  const d=(sp.pre.match(/最終更新[：:]\s*(\d{4}-\d{1,2}-\d{1,2})/)||[])[1];
+  return top+`<details class="pre"${q?' open':''}><summary>📄 最終更新${d?' '+d:''}・ファイルの説明（タップで開く）</summary>${v.h}</details>`;
+}
 let kkKeys=[];
 function rKK1(m){
   const meta=db.kkMeta;
-  const r=kkText?mdRender(kkText,S.kq):{h:'',secs:[],keys:[]};
+  const sp=preSplit(kkText);const r=kkText?mdRender(sp.body,S.kq):{h:'',secs:[],keys:[]};if(kkText&&r.h)r.h=preBox(sp,S.kq)+r.h;
   kkKeys=r.keys;
   const nChk=r.keys.filter(([k])=>hasK(k)).length;
   const logs=live(db.kkLog).sort((a,b)=>(b.at||0)-(a.at||0));
@@ -700,7 +717,7 @@ function mdView(src,q){
   closeUl();return {h,secs};
 }
 function rKK2(m){
-  const meta=db.kkMeta2;const r=kkText2?mdView(kkText2,S.kq):{h:'',secs:[]};
+  const meta=db.kkMeta2;const sp=preSplit(kkText2);const r=kkText2?mdView(sp.body,S.kq):{h:'',secs:[]};if(kkText2&&r.h)r.h=preBox(sp,S.kq)+r.h;
   m.innerHTML=kdChips()+`
   <div class="card"><div class="row"><div class="grow"><b>00_進捗_プロジェクト別.md</b><div class="muted">${meta?'アップロード：'+fmtTs(meta.at)+(meta.from?'（'+esc(meta.from)+'）':''):'まだアップロードされていません'}</div></div>
   <label class="btn p" style="cursor:pointer">アップロード<input type="file" id="kpF" accept=".md,.txt,text/markdown,text/plain" class="hide"></label></div>
@@ -1054,7 +1071,7 @@ function rSet(m){
   <label class="muted">トークンの期限（30日前から画面上部に警告を出します）</label><input type="date" id="cP" value="${esc(cfg.tokenExp||'')}">
   <div class="row" style="margin-top:10px"><button class="btn p" id="cS">保存して接続</button><button class="btn" id="cX">この端末から設定を消す</button></div>
   <p class="muted">トークンはこの端末のブラウザ内にだけ保存されます。紛失・機種変更時はGitHubでトークンを削除すれば無効になります。</p></div>
-  <div class="card"><h2 style="margin-top:0">アプリの版</h2><p style="margin:0">v${APP_VER}<span class="muted">（「依頼文」タブがあるのは v2026-10-26 以降）</span></p><div class="row" style="margin-top:8px"><button class="btn s" id="vRl">最新版を読み込み直す</button></div></div>
+  <div class="card"><h2 style="margin-top:0">アプリの版</h2><p style="margin:0">v${APP_VER}<span class="muted">（「依頼文」タブは v2026-10-26 以降、確認・進捗の冒頭の折りたたみは v2026-10-28 以降）</span></p><div class="row" style="margin-top:8px"><button class="btn s" id="vRl">最新版を読み込み直す</button></div></div>
   <div class="card"><h2 style="margin-top:0">表示</h2>
   <label class="muted">週の始まり</label><select id="cW"><option value="0" ${+cfg.weekStart===0?'selected':''}>日曜</option><option value="1" ${+cfg.weekStart===1?'selected':''}>月曜</option></select></div>
   <div class="card"><h2 style="margin-top:0">バックアップ</h2>
