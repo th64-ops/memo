@@ -45,6 +45,17 @@ textarea{resize:vertical;min-height:70px}
 .tag{color:var(--acc);font-weight:700}
 .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .pin{border-left:4px solid var(--warn)}
+#mIn{min-height:84px;overflow-y:auto;resize:none;line-height:1.55}
+#mIn::placeholder{white-space:pre-line}
+.ml{padding:10px 12px;cursor:pointer}
+.ml .mh{display:flex;gap:8px;align-items:baseline}
+.ml .mt{flex:1;min-width:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ml .md{font-size:12px;color:var(--sub);white-space:nowrap}
+.ml .mp{font-size:14px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.ml.open{cursor:default}
+.ml.open .mt{white-space:normal}
+.ml .mbody{margin-top:6px;padding-top:6px;border-top:1px dashed var(--line)}
+#eT{min-height:45vh;resize:vertical;line-height:1.55}
 h2{font-size:16px;margin:16px 0 8px}
 /* calendar */
 .calhead{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -359,7 +370,7 @@ function render(){
 }
 
 /* ---- 版の確認（GitHub Pagesの古い写しが出ていないか） ---- */
-const APP_VER='2026-10-28';let newVer='';
+const APP_VER='2026-10-28b';let newVer='';
 async function checkVer(){
   if(!/^https?:/.test(location.protocol))return;
   try{const r=await fetch(location.pathname+'?nc='+Date.now(),{cache:'no-store'});const t=await r.text();
@@ -379,46 +390,65 @@ function rBanner(){
 /* ---- メモ ---- */
 function linkify(t){return esc(t).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/(^|\s)(#[^\s#]+)/g,'$1<span class="tag">$2</span>')}
 const tagsOf=t=>[...new Set((t.match(/(?:^|\s)#([^\s#]+)/g)||[]).map(s=>s.trim().slice(1)))];
+const mLines=t=>t.split('\n').map(l=>l.trim()).filter(Boolean);
+const mTitle=t=>(mLines(t)[0]||'（空のメモ）').replace(/^#+\s+/,'');
+const mPrev=t=>mLines(t).slice(1).join('　');
+function autoGrow(el){if(!el)return;el.style.height='auto';el.style.height=Math.min(el.scrollHeight+2,Math.round(window.innerHeight*0.6))+'px'}
+if(!S.open)S.open=new Set();
 function rMemo(m){
   const all=live(db.memos);
   const tags=[...new Set(all.flatMap(x=>tagsOf(x.text)))].sort();
   let list=all.filter(x=>(!ui.memoTag||tagsOf(x.text).includes(ui.memoTag))&&(!S.q||x.text.toLowerCase().includes(S.q.toLowerCase())));
   list.sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||b.createdAt-a.createdAt);
+  const draft=lsGet('msb.draft')||'';
+  const md=t=>{const d=new Date(t),n=new Date();return d.toDateString()===n.toDateString()?pad(d.getHours())+':'+pad(d.getMinutes()):(d.getFullYear()===n.getFullYear()?'':d.getFullYear()+'/')+(d.getMonth()+1)+'/'+d.getDate()};
   m.innerHTML=`
   <div class="card">
-    <textarea id="mIn" placeholder="思いついたことを書く（#タグ で分類／Ctrl+Enterで保存）"></textarea>
+    <textarea id="mIn" rows="3" placeholder="1行目がタイトルになります&#10;2行目から本文（#タグ で分類／Ctrl+Enterで保存）">${esc(draft)}</textarea>
     <div class="row" style="margin-top:8px"><span class="muted grow">個人情報・患者情報は書かない</span><button class="btn p" id="mAdd">保存</button></div>
   </div>
   <input type="search" id="mQ" placeholder="メモを検索" value="${esc(S.q)}">
-  <div class="chips">${tags.length?`<span class="chip ${!ui.memoTag?'on':''}" data-tag="">すべて</span>`+tags.map(t=>`<span class="chip ${ui.memoTag===t?'on':''}" data-tag="${esc(t)}">#${esc(t)}</span>`).join(''):''}</div>
+  <div class="chips">${tags.length?`<span class="chip ${!ui.memoTag?'on':''}" data-tag="">すべて</span>`+tags.map(t=>`<span class="chip ${ui.memoTag===t?'on':''}" data-tag="${esc(t)}">#${esc(t)}</span>`).join(''):''}
+  ${list.length?`<span class="grow"></span><span class="chip" id="mAll">${list.every(x=>S.open.has(x.id))?'すべて閉じる':'すべて開く'}</span>`:''}</div>
   ${list.length?'':`<p class="muted">メモはまだありません。</p>`}
-  ${list.map(x=>`<div class="card ${x.pinned?'pin':''}">
-    <div class="memo-t">${linkify(x.text)}</div>
-    <div class="muted" style="margin-top:4px">${fmtTs(x.createdAt)}${x.updatedAt-x.createdAt>60000?'（編集 '+fmtTs(x.updatedAt)+'）':''}</div>
+  ${list.map(x=>{const op=S.open.has(x.id);const pv=mPrev(x.text);
+   return `<div class="card ml ${x.pinned?'pin':''} ${op?'open':''}" data-mo="${x.id}">
+    <div class="mh"><div class="mt">${x.pinned?'📌 ':''}${esc(mTitle(x.text))}</div><span class="md">${md(x.createdAt)}</span></div>
+    ${op?`<div class="mbody"><div class="memo-t">${linkify(x.text.replace(/^\s*[^\n]*\n?/,''))||'<span class="muted">（本文なし）</span>'}</div>
+    <div class="muted" style="margin-top:6px">${fmtTs(x.createdAt)}${x.updatedAt-x.createdAt>60000?'（編集 '+fmtTs(x.updatedAt)+'）':''}</div>
     <div class="acts">
-      <button class="btn s" data-a="pin" data-id="${x.id}">${x.pinned?'固定解除':'📌固定'}</button>
       <button class="btn s" data-a="edit" data-id="${x.id}">編集</button>
+      <button class="btn s" data-a="pin" data-id="${x.id}">${x.pinned?'固定解除':'📌固定'}</button>
       <button class="btn s" data-a="toTodo" data-id="${x.id}">→TODO</button>
       <button class="btn s" data-a="toEv" data-id="${x.id}">→予定</button>
+      <button class="btn s" data-a="copy" data-id="${x.id}">コピー</button>
       <button class="btn s d" data-a="del" data-id="${x.id}">削除</button>
-    </div></div>`).join('')}`;
-  const add=()=>{const v=$('#mIn').value.trim();if(!v)return;db.memos.push(touch({id:uid(),text:v,pinned:false,createdAt:now()}));$('#mIn').value='';commit();toast('保存しました')};
+    </div></div>`:(pv?`<div class="mp">${esc(pv)}</div>`:'')}</div>`}).join('')}`;
+  const inp=$('#mIn');autoGrow(inp);
+  inp.oninput=()=>{autoGrow(inp);lsSet('msb.draft',inp.value)};
+  const add=()=>{const v=inp.value.trim();if(!v)return;db.memos.push(touch({id:uid(),text:v,pinned:false,createdAt:now()}));inp.value='';lsSet('msb.draft','');commit();toast('保存しました')};
   $('#mAdd').onclick=add;
-  $('#mIn').onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();add()}};
+  inp.onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();add()}};
   $('#mQ').oninput=e=>{S.q=e.target.value;rMemo(m);const q=$('#mQ');q.focus();q.setSelectionRange(q.value.length,q.value.length)};
   m.querySelectorAll('[data-tag]').forEach(c=>c.onclick=()=>{ui.memoTag=c.dataset.tag;lsSet(LS.ui,ui);render()});
+  const ma=$('#mAll');if(ma)ma.onclick=()=>{const allOpen=list.every(x=>S.open.has(x.id));list.forEach(x=>allOpen?S.open.delete(x.id):S.open.add(x.id));render()};
+  m.querySelectorAll('[data-mo]').forEach(c=>c.onclick=e=>{
+    if(e.target.closest('button,a'))return;
+    if(c.classList.contains('open')&&e.target.closest('.mbody'))return; // 本文の選択・コピーを妨げない
+    const id=c.dataset.mo;S.open.has(id)?S.open.delete(id):S.open.add(id);render()});
   m.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
     const x=db.memos.find(y=>y.id===b.dataset.id);if(!x)return;
     const a=b.dataset.a;
     if(a==='pin'){x.pinned=!x.pinned;touch(x);commit()}
     else if(a==='del'){if(confirm('このメモを削除しますか？')){x.deleted=true;touch(x);commit()}}
     else if(a==='edit')editMemo(x);
-    else if(a==='toTodo')editTodo({title:x.text.split('\n')[0].slice(0,80),note:x.text});
-    else if(a==='toEv')editEvent({title:x.text.split('\n')[0].slice(0,60),note:x.text,date:S.sel});
+    else if(a==='copy')copy(x.text);
+    else if(a==='toTodo')editTodo({title:mTitle(x.text).slice(0,80),note:x.text});
+    else if(a==='toEv')editEvent({title:mTitle(x.text).slice(0,60),note:x.text,date:S.sel});
   });
 }
 function editMemo(x){
-  modal(`<h3>メモを編集</h3><textarea id="eT" style="min-height:180px">${esc(x.text)}</textarea>
+  modal(`<h3>メモを編集</h3><p class="muted" style="margin:0 0 4px">1行目がタイトルになります</p><textarea id="eT">${esc(x.text)}</textarea>
   <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn" data-close>閉じる</button><button class="btn p" id="eS">保存</button></div>`);
   $('#eS').onclick=()=>{const y=db.memos.find(z=>z.id===x.id)||x;y.text=$('#eT').value;touch(y);closeModal();commit()};
 }
