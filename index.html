@@ -55,6 +55,13 @@ textarea{resize:vertical;min-height:70px}
 .ml.open{cursor:default}
 .ml.open .mt{white-space:normal}
 .ml .mbody{margin-top:6px;padding-top:6px;border-top:1px dashed var(--line)}
+.ml .mti{font-weight:700;font-size:16px;border:1px solid transparent;background:var(--acc2);margin-top:6px}
+.ml .mbi{border:1px solid transparent;background:var(--acc2);margin-top:6px;min-height:60px;resize:none;overflow-y:auto;line-height:1.55}
+.ml .mti:focus,.ml .mbi:focus{border-color:var(--acc);background:var(--card);outline:none}
+.ml .mcl{font-size:13px;color:var(--acc);border:1px solid var(--line);border-radius:999px;padding:1px 10px;background:var(--card);cursor:pointer;white-space:nowrap}
+.ml .msv{font-size:12px;color:var(--sub);margin-left:auto}
+.ml .mlk{font-size:13px;margin-top:4px;word-break:break-all}
+.ml .mlk a{color:var(--blue)}
 #eT{min-height:45vh;resize:vertical;line-height:1.55}
 h2{font-size:16px;margin:16px 0 8px}
 /* calendar */
@@ -360,6 +367,7 @@ function setTab(t){ui.tab=t;lsSet(LS.ui,ui);render();window.scrollTo(0,0)}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.t));
 $('#syncBtn').onclick=()=>{if(!configured()){setTab('set');toast('先にGitHubの設定をしてください');return}sync()};
 function render(){
+  if(S.open&&S.open.size&&document.querySelector('[data-ed]')){clearTimeout(S.edT);[...S.open].forEach(id=>saveEd(id))}
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===ui.tab));
   rBanner();
   const m=$('#main');
@@ -370,7 +378,7 @@ function render(){
 }
 
 /* ---- 版の確認（GitHub Pagesの古い写しが出ていないか） ---- */
-const APP_VER='2026-10-28b';let newVer='';
+const APP_VER='2026-10-29';let newVer='';
 async function checkVer(){
   if(!/^https?:/.test(location.protocol))return;
   try{const r=await fetch(location.pathname+'?nc='+Date.now(),{cache:'no-store'});const t=await r.text();
@@ -393,6 +401,17 @@ const tagsOf=t=>[...new Set((t.match(/(?:^|\s)#([^\s#]+)/g)||[]).map(s=>s.trim()
 const mLines=t=>t.split('\n').map(l=>l.trim()).filter(Boolean);
 const mTitle=t=>(mLines(t)[0]||'（空のメモ）').replace(/^#+\s+/,'');
 const mPrev=t=>mLines(t).slice(1).join('　');
+function mSplit(t){const s=t.replace(/^\s*\n/,'');const i=s.indexOf('\n');return i<0?[s,'']:[s.slice(0,i),s.slice(i+1)]}
+function saveEd(id,quiet){
+  const ti=document.getElementById('mt_'+id),bo=document.getElementById('mb_'+id);if(!ti||!bo)return;
+  const x=db.memos.find(y=>y.id===id);if(!x)return;
+  const t=ti.value.replace(/\n/g,' ')+(bo.value?'\n'+bo.value:'');
+  const sv=document.getElementById('ms_'+id);
+  if(t===x.text){if(sv&&sv.textContent==='入力中…')sv.textContent='保存済み';return}
+  x.text=t;touch(x);commitQuiet();if(sv)sv.textContent='✓ 保存しました';
+}
+function focusEd(id){setTimeout(()=>{const el=document.getElementById('mt_'+id);if(el){el.focus();const n=el.value.length;el.setSelectionRange(n,n)}},30)}
+function closeMemo(id){clearTimeout(S.edT);saveEd(id);S.open.delete(id);render()}
 function autoGrow(el){if(!el)return;el.style.height='auto';el.style.height=Math.min(el.scrollHeight+2,Math.round(window.innerHeight*0.6))+'px'}
 if(!S.open)S.open=new Set();
 function rMemo(m){
@@ -413,15 +432,18 @@ function rMemo(m){
   ${list.length?'':`<p class="muted">メモはまだありません。</p>`}
   ${list.map(x=>{const op=S.open.has(x.id);const pv=mPrev(x.text);
    return `<div class="card ml ${x.pinned?'pin':''} ${op?'open':''}" data-mo="${x.id}">
-    <div class="mh"><div class="mt">${x.pinned?'📌 ':''}${esc(mTitle(x.text))}</div><span class="md">${md(x.createdAt)}</span></div>
-    ${op?`<div class="mbody"><div class="memo-t">${linkify(x.text.replace(/^\s*[^\n]*\n?/,''))||'<span class="muted">（本文なし）</span>'}</div>
-    <div class="muted" style="margin-top:6px">${fmtTs(x.createdAt)}${x.updatedAt-x.createdAt>60000?'（編集 '+fmtTs(x.updatedAt)+'）':''}</div>
+    <div class="mh"><div class="mt">${x.pinned?'📌 ':''}${op?'':esc(mTitle(x.text))}</div><span class="md">${md(x.createdAt)}</span>${op?'<span class="mcl" data-cl="1">▲ 閉じる</span>':''}</div>
+    ${op?`<div class="mbody">
+    <input type="text" class="mti" id="mt_${x.id}" data-ed="${x.id}" value="${esc(mSplit(x.text)[0])}" placeholder="タイトル（1行目）" autocomplete="off">
+    <textarea class="mbi" id="mb_${x.id}" data-ed="${x.id}" placeholder="本文">${esc(mSplit(x.text)[1])}</textarea>
+    ${(x.text.match(/https?:\/\/[^\s<]+/g)||[]).length?`<div class="mlk">${x.text.match(/https?:\/\/[^\s<]+/g).map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener">🔗 ${esc(u)}</a>`).join('<br>')}</div>`:''}
+    <div class="muted row" style="margin-top:6px"><span>${fmtTs(x.createdAt)}${x.updatedAt-x.createdAt>60000?'（編集 '+fmtTs(x.updatedAt)+'）':''}</span><span class="msv" id="ms_${x.id}"></span></div>
     <div class="acts">
-      <button class="btn s" data-a="edit" data-id="${x.id}">編集</button>
       <button class="btn s" data-a="pin" data-id="${x.id}">${x.pinned?'固定解除':'📌固定'}</button>
       <button class="btn s" data-a="toTodo" data-id="${x.id}">→TODO</button>
       <button class="btn s" data-a="toEv" data-id="${x.id}">→予定</button>
       <button class="btn s" data-a="copy" data-id="${x.id}">コピー</button>
+      <button class="btn s" data-a="edit" data-id="${x.id}">大きな画面で編集</button>
       <button class="btn s d" data-a="del" data-id="${x.id}">削除</button>
     </div></div>`:(pv?`<div class="mp">${esc(pv)}</div>`:'')}</div>`}).join('')}`;
   const inp=$('#mIn');autoGrow(inp);
@@ -431,12 +453,35 @@ function rMemo(m){
   inp.onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();add()}};
   $('#mQ').oninput=e=>{S.q=e.target.value;rMemo(m);const q=$('#mQ');q.focus();q.setSelectionRange(q.value.length,q.value.length)};
   m.querySelectorAll('[data-tag]').forEach(c=>c.onclick=()=>{ui.memoTag=c.dataset.tag;lsSet(LS.ui,ui);render()});
-  const ma=$('#mAll');if(ma)ma.onclick=()=>{const allOpen=list.every(x=>S.open.has(x.id));list.forEach(x=>allOpen?S.open.delete(x.id):S.open.add(x.id));render()};
-  m.querySelectorAll('[data-mo]').forEach(c=>c.onclick=e=>{
-    if(e.target.closest('button,a'))return;
-    if(c.classList.contains('open')&&e.target.closest('.mbody'))return; // 本文の選択・コピーを妨げない
-    const id=c.dataset.mo;S.open.has(id)?S.open.delete(id):S.open.add(id);render()});
+  const ma=$('#mAll');if(ma)ma.onclick=()=>{clearTimeout(S.edT);[...S.open].forEach(i=>saveEd(i));const allOpen=list.every(x=>S.open.has(x.id));list.forEach(x=>allOpen?S.open.delete(x.id):S.open.add(x.id));render()};
+  m.querySelectorAll('[data-mo]').forEach(c=>{
+    const id=c.dataset.mo;
+    c.onclick=e=>{
+      if(e.target.closest('button,a,input,textarea'))return;
+      if(S.lpAt&&now()-S.lpAt<900)return;
+      if(c.classList.contains('open')){
+        // 開いた直後のもう1回のクリック（＝ダブルクリック）はタイトル編集へ
+        if(S.lastOpen&&S.lastOpen.id===id&&now()-S.lastOpen.t<450){focusEd(id);return}
+        if(e.target.closest('.mh'))closeMemo(id);
+        return;
+      }
+      S.open.add(id);S.lastOpen={id,t:now()};render();
+    };
+    c.ondblclick=e=>{if(e.target.closest('button,a,input,textarea'))return;if(!S.open.has(id)){S.open.add(id);render()}focusEd(id)};
+    // 長押し（スマホ）でも開いてタイトル編集
+    let lp=null;
+    c.addEventListener('touchstart',e=>{if(e.target.closest('button,a,input,textarea'))return;lp=setTimeout(()=>{lp=null;S.lpAt=now();S.open.add(id);render();focusEd(id)},550)},{passive:true});
+    ['touchend','touchmove','touchcancel'].forEach(ev=>c.addEventListener(ev,()=>{if(lp){clearTimeout(lp);lp=null}},{passive:true}));
+  });
+  m.querySelectorAll('[data-ed]').forEach(el=>{
+    const id=el.dataset.ed;
+    if(el.tagName==='TEXTAREA')autoGrow(el);
+    el.oninput=()=>{if(el.tagName==='TEXTAREA')autoGrow(el);const sv=$('#ms_'+id);if(sv)sv.textContent='入力中…';clearTimeout(S.edT);S.edT=setTimeout(()=>saveEd(id),700)};
+    el.onblur=()=>{clearTimeout(S.edT);saveEd(id)};
+    if(el.tagName==='INPUT')el.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();const b=$('#mb_'+id);if(b){b.focus();b.setSelectionRange(0,0)}}};
+  });
   m.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
+    clearTimeout(S.edT);saveEd(b.dataset.id,true);
     const x=db.memos.find(y=>y.id===b.dataset.id);if(!x)return;
     const a=b.dataset.a;
     if(a==='pin'){x.pinned=!x.pinned;touch(x);commit()}
