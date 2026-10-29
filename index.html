@@ -119,6 +119,13 @@ h2{font-size:16px;margin:16px 0 8px}
 .kk li .cmt{margin-left:0}
 details.log summary{cursor:pointer;font-weight:700}
 .kk details.pre{border:1px solid var(--line);border-radius:9px;padding:6px 10px;margin:4px 0 12px}
+.kk tr.hd{display:none}
+.kk table.hdo tr.hd{display:table-row}
+.kk tr.hd td,.kk tr.hs td{font-size:12px;color:var(--sub)}
+.kk .hb{display:inline-block;font-size:11px;font-weight:700;color:var(--warn);border:1px solid var(--warn);border-radius:6px;padding:0 4px;margin-right:4px;line-height:1.4;vertical-align:1px}
+.kk .hdb{border:1px dashed var(--line);background:var(--card);color:var(--sub);border-radius:8px;padding:2px 10px;font-size:12px;cursor:pointer}
+.kk .jl{color:var(--acc);text-decoration:underline;cursor:pointer}
+.kk .jl.up{font-size:12px;font-weight:400;margin-left:8px;text-decoration:none}
 .kk details.pre summary{cursor:pointer;font-weight:700;font-size:14px}
 .kk details.pre[open] summary{margin-bottom:6px}
 @media (max-width:640px){
@@ -133,6 +140,9 @@ details.log summary{cursor:pointer;font-weight:700}
  .kk td[data-l]::before{content:attr(data-l)"：";font-size:12px;color:var(--sub)}
  .kk td:last-child::before{display:block}
  .kk tr.cm td:first-child{display:none}
+ .kk table.hdo tr.hd{display:block}
+ .kk tr.hdt{padding:4px 8px;background:none;border:0;margin:-2px 0 8px}
+ .kk tr.hdt td::before{display:none}
  .tw{overflow:visible}
 }
 .toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#333;color:#fff;padding:8px 14px;border-radius:9px;font-size:14px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
@@ -378,7 +388,7 @@ function render(){
 }
 
 /* ---- 版の確認（GitHub Pagesの古い写しが出ていないか） ---- */
-const APP_VER='2026-10-29b';let newVer='';
+const APP_VER='2026-10-29c';let newVer='';
 async function checkVer(){
   if(!/^https?:/.test(location.protocol))return;
   try{const r=await fetch(location.pathname+'?nc='+Date.now(),{cache:'no-store'});const t=await r.text();
@@ -660,7 +670,13 @@ const hasK=k=>{const c=db.kkChecks[k];return !!(c&&(c.v||c.c))};
 function kSet(k,patch,text){db.kkChecks[k]=Object.assign({},kGet(k),patch,{t:now(),x:text});}
 function cmtHtml(k){const c=kGet(k);return c.c?`<div class="cmt" data-kc="${k}">💬 ${c.cd?jDate(c.cd)+'：':''}${esc(c.c)}</div>`:''}
 function cmtBtn(k){return `<br><button class="cmb ${kGet(k).c?'has':''}" data-kc="${k}" title="対処のコメント">💬</button>`}
-function mdRender(src,q){
+/* ---- 保留（ファイル冒頭の「- 保留：101〜105（…）」で指定。対象・No列の番号がすべて保留中の行を小さく畳む） ---- */
+function codesIn(t){const s=new Set();(t||'').replace(/(\d{2,3})\s*[〜~～–\-]\s*(\d{2,3})|(\d{2,3})/g,(x,a,b,c)=>{if(c)s.add(c);else{for(let n=+a;n<=+b&&n-+a<50;n++)s.add(String(n).padStart(a.length,'0'))}return x});return s}
+function holdSet(src){const m=(src||'').match(/^[ \t]*[-*][ \t]*保留[：:][ \t]*(.+)$/m);return m?codesIn(m[1].replace(/[（(].*$/,'')):new Set()}
+function holdLabel(src){const m=(src||'').match(/^[ \t]*[-*][ \t]*保留[：:][ \t]*(.+)$/m);return m?m[1]:''}
+function isHeld(cell,H){if(!H||!H.size||!cell||cell.length>40)return false;const c=codesIn(cell.replace(/\*/g,''));if(!c.size)return false;for(const x of c)if(!H.has(x))return false;return true}
+const tgtCol=head=>head.findIndex(c=>/^(対象|No)$/.test(c.replace(/\*/g,'').trim()));
+function mdRender(src,q,H){
   const L=src.replace(/\r\n?/g,'\n').split('\n');let h='',i=0,inUl=false,sec='',secs=[];const keys=[];
   const closeUl=()=>{if(inUl){h+='</ul>';inUl=false}};
   const hit=t=>!q||t.toLowerCase().includes(q.toLowerCase());
@@ -672,10 +688,15 @@ function mdRender(src,q){
       const head=cells(rows[0]);const body=rows.slice(1).filter(r=>!/^\s*\|?\s*:?-{2,}/.test(r)).map(cells);
       const shown=body.filter(r=>hit(r.join(' ')+' '+(kGet(hkey(sec+'|'+r.join('｜'))).c||'')));
       if(!shown.length)continue;
-      h+='<div class="tw"><table><tr><th>済</th>'+head.map(c=>'<th>'+inl(c)+'</th>').join('')+'</tr>';
+      const ti=tgtCol(head);let rh='',hh='',hn=0;
       for(const r of shown){const txt=r.join('｜');const k=hkey(sec+'|'+txt);keys.push([k,(sec?'['+sec+'] ':'')+txt]);
-        h+=`<tr class="${isChk(k)?'dn':''}"><td class="ck"><input type="checkbox" data-kk="${k}" ${isChk(k)?'checked':''}>${cmtBtn(k)}</td>`+r.map((c,ci)=>`<td data-l="${esc(head[ci]||'')}">`+inl(c,q)+'</td>').join('')+'</tr>';
-        if(kGet(k).c)h+=`<tr class="cm"><td></td><td colspan="${r.length}">${cmtHtml(k)}</td></tr>`}
+        const held=ti>=0&&isHeld(r[ti],H);
+        let x=`<tr class="${isChk(k)?'dn':''}${held?' hd':''}"><td class="ck"><input type="checkbox" data-kk="${k}" ${isChk(k)?'checked':''}>${cmtBtn(k)}</td>`+r.map((c,ci)=>`<td data-l="${esc(head[ci]||'')}">`+(held&&ci===ti?'<span class="hb">保留</span>':'')+inl(c,q)+'</td>').join('')+'</tr>';
+        if(kGet(k).c)x+=`<tr class="cm${held?' hd':''}"><td></td><td colspan="${r.length}">${cmtHtml(k)}</td></tr>`;
+        if(held){hh+=x;hn++}else rh+=x}
+      const op=q&&hn;
+      h+=`<div class="tw"><table class="${op?'hdo':''}"><tr><th>済</th>`+head.map(c=>'<th>'+inl(c)+'</th>').join('')+'</tr>'+rh;
+      if(hn)h+=`<tr class="hdt"><td colspan="${head.length+1}"><button class="hdb" data-hdt="${hn}">${op?'▾ 保留中 '+hn+'件（隠す）':'⏸ 保留中 '+hn+'件（タップで表示）'}</button></td></tr>`+hh;
       h+='</table></div>';continue;
     }
     let mm;
@@ -713,7 +734,7 @@ function preBox(sp,q){
 let kkKeys=[];
 function rKK1(m){
   const meta=db.kkMeta;
-  const sp=preSplit(kkText);const r=kkText?mdRender(sp.body,S.kq):{h:'',secs:[],keys:[]};if(kkText&&r.h)r.h=preBox(sp,S.kq)+r.h;
+  const sp=preSplit(kkText);const H=holdSet(kkText);const r=kkText?mdRender(sp.body,S.kq,H):{h:'',secs:[],keys:[]};if(kkText&&r.h)r.h=preBox(sp,S.kq)+r.h;
   kkKeys=r.keys;
   const nChk=r.keys.filter(([k])=>hasK(k)).length;
   const logs=live(db.kkLog).sort((a,b)=>(b.at||0)-(a.at||0));
@@ -724,6 +745,7 @@ function rKK1(m){
   <div class="row" style="margin-top:6px"><button class="btn s" id="kkCp" ${nChk?'':'disabled'}>済・コメントをコピー（${nChk}件）</button><button class="btn s" id="kkRl">再読み込み</button></div></div>
   ${kkText?`<input type="search" id="kQ" placeholder="確認事項を検索（例：101、病理）" value="${esc(S.kq)}">
   <div class="chips">${r.secs.map((s,i)=>`<span class="chip" data-j="s${i+1}">${esc(s.replace(/[（(].*$/,'').slice(0,14))}</span>`).join('')}</div>
+  ${H.size?`<p class="muted" style="margin:0 0 6px">⏸ 保留中：${esc(holdLabel(kkText))}　→ 該当の行は各表の末尾に畳んでいます</p>`:''}
   <div class="kk card">${r.h||'<p class="muted">該当なし</p>'}</div>`:''}
   ${logs.length?`<details class="card log"><summary>対処の記録（ファイルから消えた項目 ${logs.length}件）</summary>
     <div class="row" style="margin:8px 0"><button class="btn s" id="lgCp">記録をコピー</button><button class="btn s d" id="lgClr">記録をすべて消す</button></div>
@@ -754,6 +776,7 @@ function rKK1(m){
   const lz=$('#lgClr');if(lz)lz.onclick=()=>{if(!confirm('対処の記録をすべて消しますか？'))return;db.kkLog.forEach(l=>{if(!l.deleted){l.deleted=true;touch(l)}});commit()};
   m.querySelectorAll('[data-lg]').forEach(b=>b.onclick=()=>{const l=db.kkLog.find(x=>x.id===b.dataset.lg);if(l){l.deleted=true;touch(l);commit()}});
   m.querySelectorAll('[data-kc]').forEach(b=>b.onclick=()=>kkComment(b.dataset.kc));
+  bindHold(m);
   bindKdChips(m);
   const q=$('#kQ');if(q)q.oninput=e=>{S.kq=e.target.value;rKK(m);const k=$('#kQ');k.focus();k.setSelectionRange(k.value.length,k.value.length)};
   m.querySelectorAll('[data-j]').forEach(c=>c.onclick=()=>{const t=document.getElementById(c.dataset.j);if(t)window.scrollTo({top:t.getBoundingClientRect().top+scrollY-60,behavior:'smooth'})});
@@ -763,12 +786,16 @@ function rKK1(m){
 }
 
 /* ---- 進捗（プロジェクト別）：参照のみ。済の印・コメントはつけない（確認事項と干渉させないため） ---- */
+function bindHold(m){m.querySelectorAll('[data-hdt]').forEach(b=>b.onclick=()=>{const t=b.closest('table');const o=t.classList.toggle('hdo');const n=b.dataset.hdt;b.textContent=o?'▾ 保留中 '+n+'件（隠す）':'⏸ 保留中 '+n+'件（タップで表示）'})}
 function kdChips(){const t=[['kakunin','確認事項（行動別）'],['shinchoku','進捗（プロジェクト別）・参照のみ']];
   return '<div class="chips">'+t.map(([k,l])=>`<span class="chip" data-kd="${k}" style="${k===S.kd?'background:var(--acc);color:#fff':''}">${l}</span>`).join('')+'</div>'}
 function bindKdChips(m){m.querySelectorAll('[data-kd]').forEach(c=>c.onclick=()=>{if(S.kd===c.dataset.kd)return;S.kd=c.dataset.kd;S.kq='';rKK(m);window.scrollTo(0,0)})}
 function rKK(m){(S.kd==='shinchoku'?rKK2:rKK1)(m)}
-function mdView(src,q){
+function mdView(src,q,H){
   const L=src.replace(/\r\n?/g,'\n').split('\n');let h='',i=0,inUl=false,secs=[];
+  // 見出し2の番号（例「## 01 カルテ…」）→ 見出しのid。一覧の表から各プロジェクトへ飛ぶため
+  const jm={};let n2=0,firstList=false;
+  for(const l of L){const m2=l.match(/^##\s+(.*)/);if(m2&&!/^###/.test(l)){n2++;if(n2===1)firstList=/一覧/.test(m2[1]);const c=(m2[1].match(/^(\d{2,3})\s/)||[])[1];if(c&&!jm[c])jm[c]='p'+n2}}
   const closeUl=()=>{if(inUl){h+='</ul>';inUl=false}};
   const hit=t=>!q||t.toLowerCase().includes(q.toLowerCase());
   while(i<L.length){
@@ -778,21 +805,25 @@ function mdView(src,q){
       const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
       const head=cells(rows[0]);const body=rows.slice(1).filter(r=>!/^\s*\|?\s*:?-{2,}/.test(r)).map(cells);
       const shown=body.filter(r=>hit(r.join(' ')));if(!shown.length)continue;
+      const ti=tgtCol(head);const pi=head.findIndex(c=>/^プロジェクト$/.test(c.trim()));
       h+='<div class="tw"><table><tr>'+head.map(c=>'<th>'+inl(c)+'</th>').join('')+'</tr>';
-      for(const r of shown)h+='<tr>'+r.map((c,ci)=>`<td data-l="${esc(head[ci]||'')}">`+inl(c,q)+'</td>').join('')+'</tr>';
+      for(const r of shown){const held=ti>=0&&isHeld(r[ti],H);const jid=ti>=0?jm[r[ti].replace(/\*/g,'').trim()]:'';
+        h+=`<tr class="${held?'hs':''}">`+r.map((c,ci)=>{let v=inl(c,q);if(jid&&(ci===ti||ci===pi))v=`<span class="jl" data-j="${jid}" title="詳細へ">${v}</span>`;if(held&&ci===ti)v='<span class="hb">保留</span>'+v;return `<td data-l="${esc(head[ci]||'')}">`+v+'</td>'}).join('')+'</tr>'}
       h+='</table></div>';continue;
     }
     let mm;
     if(/^\s*-{3,}\s*$/.test(l)){closeUl();h+='<hr style="border:0;border-top:1px solid var(--line);margin:14px 0">';i++;continue}
     if((mm=l.match(/^(#{1,4})\s+(.*)/))){closeUl();const lv=Math.min(mm[1].length,3);if(lv===2)secs.push(mm[2]);
-      h+=`<h${lv} ${lv===2?`id="p${secs.length}"`:''}>${inl(mm[2])}</h${lv}>`;i++;continue}
+      const up=lv===2&&firstList&&secs.length>1?'<span class="jl up" data-j="p1">↑一覧へ</span>':'';
+      const hc=lv===2&&H&&isHeld((mm[2].match(/^(\d{2,3})\s/)||[])[1],H)?'<span class="hb">保留</span>':'';
+      h+=`<h${lv} ${lv===2?`id="p${secs.length}"`:''}>${hc}${inl(mm[2])}${up}</h${lv}>`;i++;continue}
     if((mm=l.match(/^\s*[-*]\s+(.*)/))){const t=mm[1];i++;if(!hit(t))continue;if(!inUl){h+='<ul>';inUl=true}h+='<li>'+inl(t,q)+'</li>';continue}
     closeUl();if(l.trim()&&hit(l))h+='<p>'+inl(l,q)+'</p>';i++;
   }
   closeUl();return {h,secs};
 }
 function rKK2(m){
-  const meta=db.kkMeta2;const sp=preSplit(kkText2);const r=kkText2?mdView(sp.body,S.kq):{h:'',secs:[]};if(kkText2&&r.h)r.h=preBox(sp,S.kq)+r.h;
+  const meta=db.kkMeta2;const sp=preSplit(kkText2);let H=holdSet(kkText2);if(!H.size)H=holdSet(kkText);const r=kkText2?mdView(sp.body,S.kq,H):{h:'',secs:[]};if(kkText2&&r.h)r.h=preBox(sp,S.kq)+r.h;
   m.innerHTML=kdChips()+`
   <div class="card"><div class="row"><div class="grow"><b>00_進捗_プロジェクト別.md</b><div class="muted">${meta?'アップロード：'+fmtTs(meta.at)+(meta.from?'（'+esc(meta.from)+'）':''):'まだアップロードされていません'}</div></div>
   <label class="btn p" style="cursor:pointer">アップロード<input type="file" id="kpF" accept=".md,.txt,text/markdown,text/plain" class="hide"></label></div>
@@ -1146,7 +1177,7 @@ function rSet(m){
   <label class="muted">トークンの期限（30日前から画面上部に警告を出します）</label><input type="date" id="cP" value="${esc(cfg.tokenExp||'')}">
   <div class="row" style="margin-top:10px"><button class="btn p" id="cS">保存して接続</button><button class="btn" id="cX">この端末から設定を消す</button></div>
   <p class="muted">トークンはこの端末のブラウザ内にだけ保存されます。紛失・機種変更時はGitHubでトークンを削除すれば無効になります。</p></div>
-  <div class="card"><h2 style="margin-top:0">アプリの版</h2><p style="margin:0">v${APP_VER}<span class="muted">（「依頼文」タブは v2026-10-26 以降、確認・進捗の冒頭の折りたたみは v2026-10-28 以降）</span></p><div class="row" style="margin-top:8px"><button class="btn s" id="vRl">最新版を読み込み直す</button></div></div>
+  <div class="card"><h2 style="margin-top:0">アプリの版</h2><p style="margin:0">v${APP_VER}<span class="muted">（「依頼文」タブは v2026-10-26 以降、確認・進捗の冒頭の折りたたみは v2026-10-28 以降、保留の畳み・進捗の一覧からのリンクは v2026-10-29c 以降）</span></p><div class="row" style="margin-top:8px"><button class="btn s" id="vRl">最新版を読み込み直す</button></div></div>
   <div class="card"><h2 style="margin-top:0">表示</h2>
   <label class="muted">週の始まり</label><select id="cW"><option value="0" ${+cfg.weekStart===0?'selected':''}>日曜</option><option value="1" ${+cfg.weekStart===1?'selected':''}>月曜</option></select></div>
   <div class="card"><h2 style="margin-top:0">バックアップ</h2>
