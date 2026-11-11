@@ -179,6 +179,40 @@ details.log summary{cursor:pointer;font-weight:700}
 .pw.ok{background:var(--acc2);color:var(--acc);border-color:var(--acc)}
 .pbar{position:sticky;bottom:calc(62px + env(safe-area-inset-bottom));z-index:15;display:flex;gap:8px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:7px 10px;box-shadow:0 2px 8px rgba(0,0,0,.12);margin:4px 0 10px}
 #pr{display:none}
+/* TODO・今日（v2026-11-11） */
+main.wide{max-width:1280px}
+.tgs{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
+.tg{font-size:11px;border-radius:999px;padding:0 7px;background:var(--acc2);color:var(--sub);line-height:1.65;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.tg.h{background:#fde2df;color:#a3301f}
+.tg.w{background:#ece6f8;color:#5b3fa0}
+.tg.x{background:#c0392b;color:#fff}
+@media (prefers-color-scheme:dark){.tg.h{background:#4a2420;color:#f0a59b}.tg.w{background:#332a48;color:#c4b2f0}}
+.tbs{display:flex;gap:4px;flex-direction:column;align-items:flex-end;flex:none}
+.pgb{height:8px;background:var(--acc2);border-radius:99px;overflow:hidden;margin-top:4px}
+.pgb i{display:block;height:100%;background:var(--acc)}
+details.tdx{border:1px solid var(--line);border-radius:9px;padding:6px 10px;margin-top:10px;background:var(--card)}
+details.tdx summary{cursor:pointer;font-size:14px;color:var(--acc);font-weight:700}
+.sp{display:grid;gap:0 10px}
+@media (min-width:760px){.sp{grid-template-columns:6fr 4fr;align-items:start}.sp .z1{grid-row:span 2}}
+.zh{font-weight:700;color:var(--acc);border-bottom:2px solid var(--acc2);padding-bottom:3px;margin-bottom:6px}
+.dyh{font-size:14px;margin-top:6px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.gl{font-weight:700}
+.evc{cursor:pointer;font-size:13px;border:1px solid var(--line);border-radius:7px;padding:1px 7px}
+.evc i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
+.rk{border-left:3px solid var(--warn);padding:4px 8px;margin:6px 0;cursor:pointer;font-size:14px}
+details.rv{border-top:1px dashed var(--line);padding:4px 0}
+details.rv summary{cursor:pointer;font-size:14px}
+details.rv label,.mtg label{display:block;font-size:12px;color:var(--sub);margin:6px 0 2px}
+details.rv textarea,.mtg textarea{min-height:38px;resize:none;overflow-y:auto}
+details.pk{margin-top:8px;border:1px dashed var(--line);border-radius:9px;padding:4px 8px}
+details.pk summary{cursor:pointer;font-size:14px;color:var(--acc)}
+.mtg{border-top:1px solid var(--line);padding:8px 0}
+.mg2{display:grid;gap:0 8px}
+@media (min-width:600px){.mg2{grid-template-columns:1fr 1fr}}
+.nx{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.tmd{font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;min-width:120px}
+.dyc{position:absolute;right:3px;bottom:1px;font-size:10px;color:var(--acc)}
+@media (max-width:420px){nav button{font-size:10.5px;letter-spacing:-.04em}}
 @media print{
  @page{size:A4 landscape;margin:8mm}
  html,body{background:#fff!important;color:#000!important}
@@ -213,6 +247,7 @@ details.log summary{cursor:pointer;font-weight:700}
 <div id="bn"></div>
 <main id="main"></main>
 <nav id="nav">
+  <button data-t="today"><b>◧</b>今日</button>
   <button data-t="memo"><b>✎</b>メモ</button>
   <button data-t="cal"><b>▦</b>予定</button>
   <button data-t="todo"><b>☑</b>TODO</button>
@@ -246,7 +281,7 @@ const jDate=s=>{if(!s)return'';const d=pYmd(s);return (d.getMonth()+1)+'/'+d.get
 const fmtTs=t=>{const d=new Date(t);return d.getFullYear()+'/'+pad(d.getMonth()+1)+'/'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())};
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),2200)}
 
-const emptyDB=()=>({v:1,memos:[],events:[],todos:[],kkChecks:{},kkLog:[],kkMeta:null,kkMeta2:null,pTpl:[]});
+const emptyDB=()=>({v:1,memos:[],events:[],todos:[],kkChecks:{},kkLog:[],kkMeta:null,kkMeta2:null,pTpl:[],weeks:[],days:[]});
 let db=Object.assign(emptyDB(),lsGet(LS.data)||{});
 let cfg=Object.assign({owner:'',repo:'',token:'',weekStart:0,tokenExp:''},lsGet(LS.cfg)||{});
 let ui=Object.assign({tab:'memo',memoTag:'',todoF:'open',calView:'month'},lsGet(LS.ui)||{});
@@ -323,7 +358,7 @@ async function putFile(path,text,sha,msg){
 function mergeDB(a,b){
   const out=emptyDB();
   const lim=now()-90*864e5; // 削除から90日経った記録は掃除
-  for(const k of ['memos','events','todos','kkLog','pTpl']){
+  for(const k of ['memos','events','todos','kkLog','pTpl','weeks','days']){
     const m=new Map();
     for(const x of (b[k]||[]))m.set(x.id,x);
     for(const x of (a[k]||[])){const y=m.get(x.id);if(!y||(x.updatedAt||0)>=(y.updatedAt||0))m.set(x.id,x)}
@@ -385,21 +420,23 @@ function setStatus(s,msg){
 
 /* ===== 画面 ===== */
 function setTab(t){ui.tab=t;lsSet(LS.ui,ui);render();window.scrollTo(0,0)}
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.t));
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{if(b.dataset.t==='today')S.day=null;if(b.dataset.t==='todo')S.wk=null;setTab(b.dataset.t)});
 $('#syncBtn').onclick=()=>{if(!configured()){setTab('set');toast('先にGitHubの設定をしてください');return}sync()};
 function render(){
+  flushAuto();
   if(S.open&&S.open.size&&document.querySelector('[data-ed]')){clearTimeout(S.edT);[...S.open].forEach(id=>saveEd(id))}
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===ui.tab));
   rBanner();
   const m=$('#main');
   const keep=document.activeElement&&document.activeElement.id;
   const val=keep&&document.activeElement.value;
-  ({memo:rMemo,cal:rCal,todo:rTodo,kk:rKK,pr:rPr,set:rSet}[ui.tab]||rMemo)(m);
+  m.classList.toggle('wide',ui.tab==='today');
+  ({today:rToday,memo:rMemo,cal:rCal,todo:rTodo,kk:rKK,pr:rPr,set:rSet}[ui.tab]||rMemo)(m);
   if(keep){const el=document.getElementById(keep);if(el&&el.tagName!=='BUTTON'){el.focus();if(val!=null&&el.value!==val&&el.type!=='checkbox')el.value=val}}
 }
 
 /* ---- 版の確認（GitHub Pagesの古い写しが出ていないか） ---- */
-const APP_VER='2026-10-29d';let newVer='';
+const APP_VER='2026-11-11';let newVer='';
 async function checkVer(){
   if(!/^https?:/.test(location.protocol))return;
   try{const r=await fetch(location.pathname+'?nc='+Date.now(),{cache:'no-store'});const t=await r.text();
@@ -544,12 +581,12 @@ function rCal(m){
   <div class="grid">${dows.map(d=>`<div class="dow">${d}</div>`).join('')}
   ${cells.slice(0,rows).map(d=>{const s=ymd(d);const e=evOn(s);const t=tdOn(s).filter(x=>!x.done);const h=holName(s);
     return `<div class="day ${d.getMonth()!==mo?'out':''} ${s===td?'today':''} ${s===sel?'sel':''} ${d.getDay()===0?'sun':''} ${d.getDay()===6?'sat':''} ${h?'hol':''}" data-d="${s}" title="${esc(h)}">
-    <span class="dn">${d.getDate()}</span>${t.length?`<span class="tdc">☑${t.length}</span>`:''}${h?`<div class="hn">${esc(h)}</div>`:''}
+    <span class="dn">${d.getDate()}</span>${t.length?`<span class="tdc">☑${t.length}</span>`:''}${dayHas(s)?'<span class="dyc">✎</span>':''}${h?`<div class="hn">${esc(h)}</div>`:''}
     ${e.slice(0,3).map(x=>`<div class="ev" style="background:${evColor(x)}">${esc(x.title)}</div>`).join('')}${e.length>3?`<div class="more">+${e.length-3}</div>`:''}</div>`}).join('')}
   </div>
   <div class="card" style="margin-top:10px">
     <div class="row"><b class="grow">${jDate(sel)} ${hn?`<span class="over">${esc(hn)}</span>`:''}</b>
-    <button class="btn s" id="dEv">＋予定</button><button class="btn s" id="dTd">＋TODO</button></div>
+    <button class="btn s" id="dPg">📖 この日のページ</button><button class="btn s" id="dEv">＋予定</button><button class="btn s" id="dTd">＋TODO</button></div>
     ${evs.length||tds.length?'':'<p class="muted">この日の予定・TODOはありません。</p>'}
     ${evs.map(evRow).join('')}${tds.map(tdRow).join('')}
   </div>`}`;
@@ -565,6 +602,7 @@ function rCal(m){
       S.sel=c.dataset.d;const d=pYmd(S.sel);if(d.getMonth()!==mo)S.month=new Date(d.getFullYear(),d.getMonth(),1);render()});
     $('#dEv').onclick=()=>editEvent({date:sel});
     $('#dTd').onclick=()=>editTodo({due:sel});
+    $('#dPg').onclick=()=>{S.day=sel===today()?null:sel;setTab('today')};
   }
   bindRows(m);
 }
@@ -574,19 +612,6 @@ function evRow(e){
   <div class="tm">${evTime(e)}${e.endDate&&e.endDate!==e.date?'<br>〜'+jDate(e.endDate):''}</div>
   <div class="grow"><div>${esc(e.title)}</div>${e.note?`<div class="muted" style="white-space:pre-wrap">${esc(e.note.length>90?e.note.slice(0,90)+'…':e.note)}</div>`:''}
   ${lt.length?`<div class="muted">TODO ${dn}/${lt.length} 完了</div>`:''}</div></div>`;
-}
-function tdRow(t){
-  const ev=t.eventId&&db.events.find(e=>e.id===t.eventId&&!e.deleted);
-  const ov=!t.done&&t.due&&t.due<today();
-  return `<div class="item"><input type="checkbox" data-tk="${t.id}" ${t.done?'checked':''}>
-  <div class="grow" data-td="${t.id}" style="cursor:pointer"><div class="${t.done?'done-t':''}">${esc(t.title)}</div>
-  <div class="muted">${t.due?`<span class="${ov?'over':''}">期限 ${jDate(t.due)}${ov?'（期限切れ）':''}</span>`:'期限なし'}
-  ${ev?` ・ <span class="link" data-ev="${ev.id}">📅 ${esc(ev.title)}（${jDate(ev.date)}）</span>`:''}</div></div></div>`;
-}
-function bindRows(root){
-  root.querySelectorAll('[data-ev]').forEach(el=>el.onclick=e=>{e.stopPropagation();const x=db.events.find(y=>y.id===el.dataset.ev);if(x)editEvent(x)});
-  root.querySelectorAll('[data-td]').forEach(el=>el.onclick=()=>{const x=db.todos.find(y=>y.id===el.dataset.td);if(x)editTodo(x)});
-  root.querySelectorAll('[data-tk]').forEach(el=>el.onchange=()=>{const x=db.todos.find(y=>y.id===el.dataset.tk);if(!x)return;x.done=el.checked;x.doneAt=el.checked?now():null;touch(x);commit()});
 }
 function editEvent(src){
   const isNew=!src.id;
@@ -628,46 +653,278 @@ function editEvent(src){
 }
 function commitQuiet(){saveLocal();pending=true;lsSet('msb.pending',true);schedulePush()}
 
-/* ---- TODO ---- */
+/* ---- TODO（v2026-11-11：書籍『仕事ができる人の当たり前』4章 TODO・6章 ノート術の考えを取り入れた） ---- */
+const ACTS=[['1','人に聞く・連絡（院内）'],['2','院外・家庭に連絡'],['3','院内規程・委員会'],['4','カルテで確認'],['5','病院PCで'],['6','自宅PCで'],['7','Web・資料の入手'],['8','自分で決める'],['9','外出先で']];
+const ACTMAP=Object.fromEntries(ACTS);
+const ISS=['01','02','03','04','05','06','07','08','09','10','100','200','300','資格','学会','院務','家庭','生活','その他'];
+const PRI={h:['高',1],m:['中',2],l:['低',3]};
+const STS=[['todo','未着手'],['doing','進行中'],['wait','待ち（返事・承認など）']];
+const cut=(s,n)=>{s=String(s||'');return s.length>n?s.slice(0,n)+'…':s};
+const dOf=ts=>ts?ymd(new Date(ts)):'';
+/* 週（「設定」の週の始まりに合わせる） */
+function wkStart(s){const d=pYmd(s||today());const ws=+cfg.weekStart||0;d.setDate(d.getDate()-((d.getDay()-ws+7)%7));return ymd(d)}
+function wkGet(ws){let w=db.weeks.find(x=>x.id==='w'+ws);if(!w){w={id:'w'+ws,ws,goals:['','',''],memo:'',createdAt:now()};db.weeks.push(w)}w.deleted=false;return w}
+const wkPeek=ws=>db.weeks.find(x=>x.id==='w'+ws&&!x.deleted)||{goals:['','',''],memo:''};
+/* 日次ページ（1日1見開き） */
+function dayGet(s){let d=db.days.find(x=>x.id==='d'+s);if(!d){d={id:'d'+s,date:s,revs:{},note:'',meets:[],createdAt:now()};db.days.push(d)}d.deleted=false;d.revs=d.revs||{};d.meets=d.meets||[];return d}
+const dayPeek=s=>db.days.find(x=>x.id==='d'+s&&!x.deleted)||{revs:{},note:'',meets:[]};
+const dayHas=s=>{const d=db.days.find(x=>x.id==='d'+s&&!x.deleted);return !!(d&&(d.note||(d.meets||[]).length||Object.values(d.revs||{}).some(r=>r&&(r.goal||r.now||r.gap||r.cause||r.fix))))};
+/* TODOの判定 */
+const tOver=t=>!t.done&&t.due&&t.due<today();
+const tDepT=t=>t.dep?db.todos.find(x=>x.id===t.dep&&!x.deleted):null;
+const tBlocked=t=>{const d=tDepT(t);return !!(d&&!d.done)};
+const tBlocks=t=>live(db.todos).filter(x=>!x.done&&x.dep===t.id).length;
+const tInWeek=(t,ws)=>{const we=addDays(ws,6);return t.week===ws||[t.plan,t.due].some(s=>s&&s>=ws&&s<=we)};
+const tInbox=t=>!t.done&&!t.act&&!t.iss&&!t.due&&!t.plan&&!t.week&&!t.eventId&&!t.who;
+const tToday=(t,s)=>!t.done&&((t.plan&&t.plan<=s)||(t.due&&t.due<=s)||(t.st==='wait'&&t.remind&&t.remind<=s));
+const tOther=t=>!!(t.who||t.st==='wait'||t.risk);
+/* 並び順：期限切れ → 他のTODOを止めているもの（先にやる）→ 優先度 → 期限 → 追加順。先行TODOの完了待ちは後ろへ */
+function tSort(list){
+  const bl=new Map();live(db.todos).forEach(x=>{if(!x.done&&x.dep)bl.set(x.dep,(bl.get(x.dep)||0)+1)});
+  const k=t=>[tOver(t)?0:1,tBlocked(t)?1:0,bl.get(t.id)?0:1,(PRI[t.pri]||PRI.m)[1],t.due||'9999',t.createdAt||0];
+  return [...list].sort((a,b)=>{const x=k(a),y=k(b);for(let i=0;i<x.length;i++){if(x[i]<y[i])return -1;if(x[i]>y[i])return 1}return 0});
+}
+function tdRow(t,o={}){
+  const ev=t.eventId&&db.events.find(e=>e.id===t.eventId&&!e.deleted);
+  const ov=tOver(t),bk=t.done?0:tBlocks(t),dp=tDepT(t),td=o.day||today();
+  const g=[];
+  if(!t.done){
+    if(t.pri==='h')g.push('<span class="tg h">優先 高</span>');else if(t.pri==='l')g.push('<span class="tg">優先 低</span>');
+    if(bk)g.push(`<span class="tg h">先にやる：${bk}件が待っている</span>`);
+    if(dp&&!dp.done)g.push(`<span class="tg w">「${esc(cut(dp.title,14))}」の完了待ち</span>`);
+    if(t.st==='wait')g.push(`<span class="tg w${t.remind&&t.remind<=td?' x':''}">待ち${t.remind?'・催促 '+jDate(t.remind):''}</span>`);
+    else if(t.st==='doing')g.push('<span class="tg">進行中</span>');
+    if(t.week&&t.week===wkStart(td))g.push('<span class="tg">今週</span>');
+  }
+  if(t.act)g.push(`<span class="tg">${t.act} ${esc(ACTMAP[t.act]||'')}</span>`);
+  if(t.iss)g.push(`<span class="tg">#${esc(t.iss)}</span>`);
+  if(t.who)g.push(`<span class="tg">相手：${esc(t.who)}</span>`);
+  if(t.min)g.push(`<span class="tg">⏱${esc(t.min)}分</span>`);
+  const dueTx=t.due?`<span class="${ov?'over':''}">期限 ${jDate(t.due)}${ov?'（期限切れ）':''}</span>`:'';
+  const plTx=t.plan&&!t.done?`着手 ${jDate(t.plan)}`:'';
+  const dates=[dueTx,plTx].filter(Boolean).join(' ・ ')||(o.day?'':'期限なし');
+  const btns=o.day&&!t.done?`<button class="btn s" data-tm="${t.id}" title="着手予定日を翌日にする">明日へ</button>`:o.pick?`<button class="btn s p" data-tn="${t.id}">今日やる</button>`:o.inbox?`<button class="btn s" data-tn="${t.id}">今日</button><button class="btn s" data-tw="${t.id}">今週</button>`:'';
+  return `<div class="item"><input type="checkbox" data-tk="${t.id}" ${t.done?'checked':''}>
+  <div class="grow" data-td="${t.id}" style="cursor:pointer"><div class="${t.done?'done-t':''}">${esc(t.title)}</div>
+  ${dates||ev?`<div class="muted">${dates}${ev?`${dates?' ・ ':''}<span class="link" data-ev="${ev.id}">📅 ${esc(ev.title)}（${jDate(ev.date)}）</span>`:''}</div>`:''}
+  ${g.length?`<div class="tgs">${g.join('')}</div>`:''}</div>${btns?`<div class="tbs">${btns}</div>`:''}</div>`;
+}
+function bindRows(root){
+  root.querySelectorAll('[data-ev]').forEach(el=>el.onclick=e=>{e.stopPropagation();const x=db.events.find(y=>y.id===el.dataset.ev);if(x)editEvent(x)});
+  root.querySelectorAll('[data-td]').forEach(el=>el.onclick=()=>{const x=db.todos.find(y=>y.id===el.dataset.td);if(x)editTodo(x)});
+  root.querySelectorAll('[data-tk]').forEach(el=>el.onchange=()=>{const x=db.todos.find(y=>y.id===el.dataset.tk);if(!x)return;x.done=el.checked;x.doneAt=el.checked?now():null;touch(x);commit()});
+  const upd=(attr,f,msg)=>root.querySelectorAll('[data-'+attr+']').forEach(el=>el.onclick=e=>{e.stopPropagation();const x=db.todos.find(y=>y.id===el.getAttribute('data-'+attr));if(!x)return;f(x);touch(x);commit();if(msg)toast(msg)});
+  upd('tm',x=>{x.plan=addDays(S.day||today(),1)},'明日に回しました');
+  upd('tn',x=>{x.plan=S.day||today()},'今日のTODOに入れました');
+  upd('tw',x=>{x.week=wkStart()},'今週のTODOに入れました');
+}
 function rTodo(m){
-  const td=today();const all=live(db.todos);
-  const F={open:['未完了',t=>!t.done],today:['今日まで',t=>!t.done&&t.due&&t.due<=td],nodue:['期限なし',t=>!t.done&&!t.due],plan:['予定にひも付け',t=>!t.done&&t.eventId],done:['完了',t=>t.done]};
-  const f=F[ui.todoF]||F.open;
-  let list=all.filter(f[1]);
-  if(ui.todoF==='done')list.sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
-  else list.sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||a.createdAt-b.createdAt);
+  const td=today();const all=live(db.todos);const V=ui.todoV||'list';
+  const views=[['week','今週'],['inbox','受信箱（'+all.filter(tInbox).length+'）'],['list','一覧']];
+  let body='';
+  if(V==='week'){
+    const ws=S.wk||wkStart(),we=addDays(ws,6),w=wkPeek(ws);
+    const doneW=all.filter(t=>t.done&&dOf(t.doneAt)>=ws&&dOf(t.doneAt)<=we).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
+    const openW=tSort(all.filter(t=>!t.done&&tInWeek(t,ws)));
+    const carry=tSort(all.filter(t=>!t.done&&!tInWeek(t,ws)&&((t.due&&t.due<ws)||(t.plan&&t.plan<ws))));
+    const n=doneW.length+openW.length,rate=n?Math.round(doneW.length/n*100):0;
+    body=`<div class="card"><div class="row"><button class="btn s" id="wkP">◀</button><b class="grow" style="text-align:center">${jDate(ws)}〜${jDate(we)}${ws===wkStart()?'（今週）':''}</b><button class="btn s" id="wkN">▶</button></div>
+    <label class="muted" style="display:block;margin:10px 0 3px">今週、何を終わらせれば「やりきった」と言えるか（最大3つ）</label>
+    ${[0,1,2].map(i=>`<input type="text" data-wg="${i}" value="${esc((w.goals||[])[i]||'')}" placeholder="${i===0?'例：学会抄録を提出する':i===1?'例：術前カンファの資料を完成させる':''}" style="margin-bottom:6px">`).join('')}
+    <div class="row muted" style="margin-top:4px"><span class="grow">完了 ${doneW.length}／${n}件（今週の印・着手予定日・期限が今週のもの）</span><b>${rate}%</b></div>
+    <div class="pgb"><i style="width:${rate}%"></i></div>
+    <div class="row" style="margin-top:8px"><button class="btn s" id="wkC">📋 ゴールとTODOをコピー（上司・共同作業者と確認する）</button></div></div>
+    <div class="card"><b>今週のTODO（${openW.length}）</b>${openW.length?openW.map(t=>tdRow(t)).join(''):'<p class="muted">今週のTODOはありません。TODOの「詳しく」で「今週やる」に印を付けるか、着手予定日・期限を今週にします。</p>'}</div>
+    ${carry.length?`<div class="card"><b>持ち越し（先週までの期限・着手予定で未完了：${carry.length}）</b>${carry.map(t=>tdRow(t)).join('')}</div>`:''}
+    <div class="card"><b>今週完了（${doneW.length}）</b>${doneW.length?doneW.map(t=>tdRow(t)).join(''):'<p class="muted">まだありません。</p>'}</div>
+    <div class="card"><b>週の振り返り</b><textarea id="wkM" placeholder="ゴールはやりきれたか／うまくいったこと／障害になったこと／来週変えること" style="margin-top:6px">${esc(w.memo||'')}</textarea><p class="muted" style="margin:4px 0 0">週の終わりに書いて、来週のゴールを決めます（自動で保存）。</p></div>`;
+  }else if(V==='inbox'){
+    const list=all.filter(tInbox).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+    body=`<div class="card"><p class="muted" style="margin:0 0 4px">思いついたことを1行で入れておく場所です。開いて行動の区分・対象・期限・着手予定日などを決めるか、「今日」「今週」を押すと、ここから出ます。</p>
+    ${list.length?list.map(t=>tdRow(t,{inbox:1})).join(''):'<p class="muted">受信箱は空です。</p>'}</div>`;
+  }else{
+    const F={open:['未完了',t=>!t.done],today:['今日まで',t=>!t.done&&((t.due&&t.due<=td)||(t.plan&&t.plan<=td))],over:['期限切れ',tOver],wait:['待ち',t=>!t.done&&t.st==='wait'],nodue:['期限なし',t=>!t.done&&!t.due],plan:['予定にひも付け',t=>!t.done&&t.eventId],done:['完了',t=>t.done]};
+    const f=F[ui.todoF]||F.open;
+    let list=all.filter(f[1]);
+    if(ui.todoF==='done')list=list.sort((a,b)=>(b.doneAt||0)-(a.doneAt||0)).slice(0,100);else list=tSort(list);
+    const G=ui.todoF==='done'?'none':(ui.todoG||'none');
+    const grp=[['none','並べ替えのみ'],['act','行動別'],['who','相手別'],['iss','対象別']];
+    let inner='';
+    if(G==='none')inner=`<div class="card">${list.length?list.map(t=>tdRow(t)).join(''):'<p class="muted">該当するTODOはありません。</p>'}</div>`;
+    else{
+      const key=t=>G==='act'?(t.act||''):G==='who'?(t.who||'').trim():(t.iss||'');
+      const keys=[...new Set(list.map(key))];
+      const order=G==='act'?ACTS.map(a=>a[0]):G==='iss'?ISS:[];
+      const oi=k=>{const i=order.indexOf(k);return i<0?999:i};
+      keys.sort((a,b)=>(a===''?1:0)-(b===''?1:0)||oi(a)-oi(b)||a.localeCompare(b,'ja'));
+      const lab=k=>k===''?(G==='act'?'行動の区分なし':G==='who'?'相手なし':'対象なし'):G==='act'?k+'. '+(ACTMAP[k]||''):G==='iss'?'#'+k:k;
+      inner=keys.length?keys.map(k=>{const its=list.filter(t=>key(t)===k);return `<div class="card"><div class="row"><b class="grow">${esc(lab(k))}（${its.length}）</b>${G==='who'&&k?`<button class="btn s" data-wc="${esc(k)}">📋 まとめて確認する文面</button>`:''}</div>${its.map(t=>tdRow(t)).join('')}</div>`}).join(''):'<div class="card"><p class="muted">該当するTODOはありません。</p></div>';
+    }
+    body=`<div class="chips">${Object.entries(F).map(([k,v])=>`<span class="chip ${ui.todoF===k?'on':''}" data-f="${k}">${v[0]}（${all.filter(v[1]).length}）</span>`).join('')}</div>
+    ${ui.todoF==='done'?'':`<div class="chips">${grp.map(([k,v])=>`<span class="chip ${G===k?'on':''}" data-g="${k}">${v}</span>`).join('')}</div>`}
+    ${G==='who'?'<p class="muted" style="margin:0 0 6px">同じ相手への確認は1回にまとめると、相手の時間を取らずに済みます。</p>':''}
+    ${inner}
+    ${ui.todoF==='done'&&list.length?'<button class="btn s d" id="tClr">完了済みを30日より前の分だけ削除</button>':''}`;
+  }
   m.innerHTML=`
-  <div class="card"><div class="row"><input type="text" id="tIn" class="grow" placeholder="TODOを追加" style="flex:1"><input type="date" id="tDu" style="width:auto"><button class="btn p" id="tAdd">追加</button></div></div>
-  <div class="chips">${Object.entries(F).map(([k,v])=>`<span class="chip ${ui.todoF===k?'on':''}" data-f="${k}">${v[0]}（${all.filter(v[1]).length}）</span>`).join('')}</div>
-  <div class="card">${list.length?list.slice(0,ui.todoF==='done'?100:999).map(tdRow).join(''):'<p class="muted">該当するTODOはありません。</p>'}</div>
-  ${ui.todoF==='done'&&list.length?'<button class="btn s d" id="tClr">完了済みを30日より前の分だけ削除</button>':''}`;
-  const add=()=>{const v=$('#tIn').value.trim();if(!v)return;db.todos.push(touch({id:uid(),title:v,done:false,due:$('#tDu').value||'',eventId:null,note:'',createdAt:now()}));$('#tIn').value='';commit()};
-  $('#tAdd').onclick=add;$('#tIn').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();add()}};
+  <div class="card"><div class="row"><input type="text" id="tIn" class="grow" placeholder="TODOを1行で追加（詳しくはあとで）" style="flex:1"><input type="date" id="tDu" style="width:auto" title="期限"><button class="btn p" id="tAdd">追加</button></div></div>
+  <div class="chips">${views.map(([k,v])=>`<span class="chip ${V===k?'on':''}" data-tv="${k}">${v}</span>`).join('')}</div>
+  ${body}`;
+  const add=()=>{const v=$('#tIn').value.trim();if(!v)return;const t={id:uid(),title:v,done:false,due:$('#tDu').value||'',eventId:null,note:'',createdAt:now()};if(V==='week')t.week=S.wk||wkStart();db.todos.push(touch(t));$('#tIn').value='';commit()};
+  $('#tAdd').onclick=add;$('#tIn').onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();add()}};
+  m.querySelectorAll('[data-tv]').forEach(c=>c.onclick=()=>{ui.todoV=c.dataset.tv;lsSet(LS.ui,ui);render()});
   m.querySelectorAll('[data-f]').forEach(c=>c.onclick=()=>{ui.todoF=c.dataset.f;lsSet(LS.ui,ui);render()});
+  m.querySelectorAll('[data-g]').forEach(c=>c.onclick=()=>{ui.todoG=c.dataset.g;lsSet(LS.ui,ui);render()});
+  m.querySelectorAll('[data-wc]').forEach(b=>b.onclick=()=>{const who=b.dataset.wc;const its=tSort(live(db.todos).filter(t=>!t.done&&(t.who||'').trim()===who));
+    copy(`${who}\nお忙しいところすみません。次の${its.length}点をまとめて確認させてください。\n`+its.map((t,i)=>`${i+1}. ${t.title}${t.due?`（${jDate(t.due)}までに）`:''}`).join('\n'))});
   const c=$('#tClr');if(c)c.onclick=()=>{const lim=now()-30*864e5;let n=0;db.todos.forEach(t=>{if(!t.deleted&&t.done&&(t.doneAt||0)<lim){t.deleted=true;touch(t);n++}});if(n){commit()}toast(n+'件削除')};
+  if(V==='week'){
+    const ws=S.wk||wkStart();
+    $('#wkP').onclick=()=>{flushAuto();S.wk=addDays(ws,-7);render()};$('#wkN').onclick=()=>{flushAuto();S.wk=addDays(ws,7);render()};
+    m.querySelectorAll('[data-wg]').forEach(el=>el.oninput=()=>autoSave(()=>{const w=wkGet(ws);w.goals=[0,1,2].map(i=>(m.querySelector(`[data-wg="${i}"]`)||{}).value||'');touch(w)}));
+    $('#wkM').oninput=()=>autoSave(()=>{const w=wkGet(ws);w.memo=$('#wkM').value;touch(w)});
+    $('#wkC').onclick=()=>{flushAuto();const w=wkPeek(ws);const gs=(w.goals||[]).filter(x=>x.trim());const its=tSort(live(db.todos).filter(t=>!t.done&&tInWeek(t,ws)));
+      copy(`今週（${jDate(ws)}〜${jDate(addDays(ws,6))}）のゴール\n`+(gs.length?gs.map((g,i)=>`${i+1}. ${g}`).join('\n'):'（未設定）')+`\n\nそのためのTODO\n`+(its.length?its.map(t=>`・${t.title}${t.due?`（期限 ${jDate(t.due)}）`:''}${t.who?`［${t.who}］`:''}`).join('\n'):'（なし）'))};
+  }
   bindRows(m);
 }
+/* 入力の自動保存（画面を作り直さずに保存する） */
+function autoSave(fn){clearTimeout(autoSave.h);if(autoSave.f&&autoSave.f!==fn)autoSave.f();autoSave.f=fn;autoSave.h=setTimeout(()=>{autoSave.f=null;fn();commitQuiet()},600)}
+function flushAuto(){if(autoSave.f){clearTimeout(autoSave.h);const f=autoSave.f;autoSave.f=null;f();commitQuiet()}}
 function editTodo(src){
   const isNew=!src.id;
-  const t=Object.assign({title:'',due:'',eventId:null,note:'',done:false},src);
+  const t=Object.assign({title:'',due:'',eventId:null,note:'',done:false,pri:'m',st:'todo',plan:'',week:'',act:'',iss:'',who:'',min:'',goal:'',risk:'',fix:'',remind:'',dep:''},src);
   const td=today();
   const evs=live(db.events).filter(e=>e.id===t.eventId||(e.endDate||e.date)>=addDays(td,-30)).sort((a,b)=>a.date.localeCompare(b.date));
+  const deps=live(db.todos).filter(x=>x.id!==t.id&&(!x.done||x.id===t.dep)).sort((a,b)=>(a.done?1:0)-(b.done?1:0)||(b.createdAt||0)-(a.createdAt||0));
+  const more=!!(t.pri!=='m'||t.st!=='todo'||t.week||t.act||t.iss||t.who||t.min||t.goal||t.risk||t.fix||t.remind||t.dep);
+  const ws=wkStart();
   modal(`<h3>${isNew?'TODOを追加':'TODOを編集'}</h3>
-  <label>内容</label><input type="text" id="gT" value="${esc(t.title)}">
-  <label>期限</label><input type="date" id="gD" value="${esc(t.due||'')}">
+  <label>内容（そのまま実行できる行動で）</label><input type="text" id="gT" value="${esc(t.title)}" placeholder="例：昨年度の資料を送ってもらうよう課長にメールする">
+  <div class="row"><div class="grow"><label>期限</label><input type="date" id="gD" value="${esc(t.due||'')}"></div>
+  <div class="grow"><label>着手予定日 <span class="link" id="gPlT">今日にする</span></label><input type="date" id="gPl" value="${esc(t.plan||'')}"></div></div>
+  <details class="tdx" ${more?'open':''}><summary>詳しく（優先度・行動の区分・相手・障害・依存など）</summary>
+  <div class="row"><div class="grow"><label>優先度</label><select id="gP">${Object.entries(PRI).map(([k,v])=>`<option value="${k}" ${t.pri===k?'selected':''}>${v[0]}</option>`).join('')}</select></div>
+  <div class="grow"><label>状態</label><select id="gSt">${STS.map(([k,v])=>`<option value="${k}" ${t.st===k?'selected':''}>${v}</option>`).join('')}</select></div></div>
+  <label><input type="checkbox" id="gW" ${t.week===ws?'checked':''}> 今週やる（今週のゴールのためのTODO）</label>
+  <div class="row"><div class="grow"><label>行動の区分</label><select id="gA"><option value="">（なし）</option>${ACTS.map(([k,v])=>`<option value="${k}" ${t.act===k?'selected':''}>${k}. ${v}</option>`).join('')}</select></div>
+  <div class="grow"><label>対象（プロジェクト番号など）</label><input type="text" id="gI" list="gIL" value="${esc(t.iss||'')}"><datalist id="gIL">${ISS.map(x=>`<option value="${x}">`).join('')}</datalist></div></div>
+  <div class="row"><div class="grow"><label>相手・確認先（役職・イニシャルで）</label><input type="text" id="gWho" value="${esc(t.who||'')}" placeholder="例：部長、共著者A"></div>
+  <div style="width:110px"><label>見積（分）</label><input type="text" inputmode="numeric" id="gMin" value="${esc(t.min||'')}" placeholder="30"></div></div>
+  <label>完了の条件・成果物（何ができたら終わりか）</label><input type="text" id="gG" value="${esc(t.goal||'')}">
+  <label>起こりうる障害「もし…」</label><input type="text" id="gR" value="${esc(t.risk||'')}" placeholder="例：3日たっても返事がなかったら">
+  <label>そのときの対策「→…」</label><input type="text" id="gF" value="${esc(t.fix||'')}" placeholder="例：係長に口頭で頼み、金曜までに受け取る">
+  <label>催促日（待ちのとき。空なら3日後）</label><input type="date" id="gRm" value="${esc(t.remind||'')}">
+  <label>先に終わらせる必要があるTODO（依存）</label><select id="gDp"><option value="">（なし）</option>${deps.map(x=>`<option value="${x.id}" ${x.id===t.dep?'selected':''}>${x.done?'✓ ':''}${esc(cut(x.title,40))}</option>`).join('')}</select>
+  </details>
   <label>ひも付ける予定</label><select id="gE"><option value="">（なし）</option>${evs.map(e=>`<option value="${e.id}" ${e.id===t.eventId?'selected':''}>${jDate(e.date)} ${esc(e.title)}</option>`).join('')}</select>
   <p class="muted" style="margin:4px 0">予定を選ぶと、その予定の画面にこのTODOが表示されます。期限を空にして予定を選ぶと、予定の前日が期限になります。</p>
   <label>メモ</label><textarea id="gM">${esc(t.note||'')}</textarea>
   ${isNew?'':`<label><input type="checkbox" id="gX" ${t.done?'checked':''}> 完了</label>`}
   <div class="row" style="margin-top:14px">${isNew?'':'<button class="btn d" id="gDel">削除</button>'}<span class="grow"></span><button class="btn" data-close>閉じる</button><button class="btn p" id="gS">保存</button></div>`);
+  $('#gPlT').onclick=()=>{$('#gPl').value=td};
   $('#gS').onclick=()=>{
     t.title=$('#gT').value.trim();if(!t.title){toast('内容を入れてください');return}
-    t.due=$('#gD').value;t.eventId=$('#gE').value||null;t.note=$('#gM').value;
+    const dp=$('#gDp').value;
+    if(dp&&t.id){let x=db.todos.find(y=>y.id===dp),n=0;while(x&&n<50){if(x.id===t.id){toast('依存がぐるぐる回るので設定できません');return}x=x.dep?db.todos.find(y=>y.id===x.dep):null;n++}}
+    t.dep=dp;
+    t.due=$('#gD').value;t.plan=$('#gPl').value;t.eventId=$('#gE').value||null;t.note=$('#gM').value;
+    t.pri=$('#gP').value;t.st=$('#gSt').value;t.act=$('#gA').value;t.iss=$('#gI').value.trim();t.who=$('#gWho').value.trim();
+    t.min=$('#gMin').value.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[^0-9]/g,'');
+    t.goal=$('#gG').value.trim();t.risk=$('#gR').value.trim();t.fix=$('#gF').value.trim();t.remind=$('#gRm').value;
+    if($('#gW').checked)t.week=ws;else if(t.week===ws)t.week='';
+    if(t.st==='wait'&&!t.remind)t.remind=addDays(td,3);
     if(!t.due&&t.eventId){const e=db.events.find(x=>x.id===t.eventId);if(e)t.due=addDays(e.date,-1)}
     if(!isNew){const d=$('#gX').checked;if(d!==t.done){t.done=d;t.doneAt=d?now():null}}
     if(isNew){t.id=uid();t.createdAt=now();db.todos.push(touch(t))}else{Object.assign(db.todos.find(x=>x.id===t.id),t);touch(db.todos.find(x=>x.id===t.id))}
     closeModal();commit();toast('保存しました')};
   if(!isNew)$('#gDel').onclick=()=>{if(!confirm('このTODOを削除しますか？'))return;const x=db.todos.find(y=>y.id===t.id);x.deleted=true;touch(x);closeModal();commit()};
+}
+
+/* ---- 今日（1日1見開き：区画1 今日のTODO／区画2 障害と対策／区画3 振り返り＋下に会議・会話メモ）。6章「ノート術」 ---- */
+const TM={len:240,left:240,end:0,run:false,h:null,fin:false,open:false,tid:''};
+function tmFmt(s){s=Math.max(0,Math.ceil(s));return pad(Math.floor(s/60))+':'+pad(s%60)}
+function tmTick(){
+  if(TM.run){TM.left=(TM.end-now())/1000;if(TM.left<=0){TM.left=0;TM.run=false;TM.fin=true;clearInterval(TM.h);TM.h=null;try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}if(ui.tab==='today'&&!$('#ov').classList.contains('on'))render();else toast('4分たちました');return}}
+  const el=document.getElementById('tmD');if(el)el.textContent=tmFmt(TM.left);
+}
+function tmStart(){if(TM.run){TM.run=false;TM.left=(TM.end-now())/1000;clearInterval(TM.h);TM.h=null}else{if(TM.left<=0)TM.left=TM.len;TM.fin=false;TM.run=true;TM.end=now()+TM.left*1000;TM.h=setInterval(tmTick,250)}render()}
+function tmReset(){TM.run=false;clearInterval(TM.h);TM.h=null;TM.left=TM.len;TM.fin=false;render()}
+function rToday(m){
+  const s=S.day||today(),isT=s===today(),all=live(db.todos),d=dayPeek(s);
+  const evs=evOn(s),hn=holName(s),w=wkPeek(wkStart(s));const gs=(w.goals||[]).filter(x=>x.trim());
+  const doneD=all.filter(t=>t.done&&dOf(t.doneAt)===s);
+  const openD=tSort(all.filter(t=>isT?tToday(t,s):(!t.done&&(t.plan===s||t.due===s))));
+  const ids=new Set(openD.map(t=>t.id));
+  const pick=isT?tSort(all.filter(t=>!t.done&&!ids.has(t.id)&&(tInWeek(t,wkStart(s))||(t.due&&t.due<=addDays(s,7))||tInbox(t)))):[];
+  const z2=openD.filter(t=>tOther(t)||tBlocked(t));
+  const tmC=TM.open?(()=>{const cand=all.filter(t=>!t.done).sort((a,b)=>(+a.min||999)-(+b.min||999)).slice(0,8);
+    return `<div class="card tmc"><div class="row"><b class="grow">⏱ 4分だけやってみる</b><button class="btn s" id="tmX">閉じる</button></div>
+    <p class="muted" style="margin:4px 0">やる気は後からついてきます。いちばん簡単なTODOを1つ選んで4分だけ。手を付けられないときは、仕事に関係する何か（メールの整理など）でも構いません。</p>
+    <select id="tmT"><option value="">（仕事に関係する何か）</option>${cand.map(t=>`<option value="${t.id}" ${t.id===TM.tid?'selected':''}>${t.min?'⏱'+esc(t.min)+'分 ':''}${esc(cut(t.title,40))}</option>`).join('')}</select>
+    <div class="row" style="margin-top:8px"><div id="tmD" class="tmd">${tmFmt(TM.left)}</div><button class="btn p" id="tmS">${TM.run?'一時停止':TM.left<TM.len&&TM.left>0?'再開':'4分 開始'}</button><button class="btn" id="tmR">リセット</button></div>
+    ${TM.fin?`<div class="pw ok" style="margin-top:8px">4分たちました。乗ってきたら、そのまま続けましょう。次は今日のTODOを整理して、優先順位をつけて進めます。</div><div class="row"><button class="btn s" id="tmA">もう4分</button>${TM.tid?'<button class="btn s" id="tmDn">このTODOを完了にする</button>':''}<button class="btn s p" id="tmO">今日のTODOを整理する</button></div>`:''}</div>`})():'';
+  const revRow=t=>{const r=d.revs[t.id]||{};const has=r.goal||r.now||r.gap||r.cause||r.fix;
+    return `<details class="rv" ${has?'open':''}><summary>${esc(cut(t.title,40))}${has?' <span class="muted">（記入あり）</span>':''}</summary>
+    ${[['goal','① 目標（今日やろうとしたこと）'],['now','② 現状（どうなったか）'],['gap','③ ギャップ（どのくらいの差か）'],['cause','原因（なぜできなかったか）'],['fix','対策（どうすればできたか・次にどうするか）']].map(([k,l])=>`<label>${l}</label><textarea rows="1" data-rv="${t.id}|${k}">${esc(r[k]||'')}</textarea>`).join('')}</details>`};
+  const meet=x=>`<div class="mtg"><div class="row"><input type="text" data-mf="${x.id}|title" value="${esc(x.title||'')}" placeholder="会議名・相手（例：術前カンファ／部長と面談）" class="grow" style="flex:1"><input type="time" data-mf="${x.id}|time" value="${esc(x.time||'')}" style="width:auto"><button class="btn s d" data-mdel="${x.id}">✕</button></div>
+    <div class="mg2"><div><label>要は何？（結論・要点）</label><textarea rows="1" data-mf="${x.id}|yoha">${esc(x.yoha||'')}</textarea></div><div><label>だから何？（自分にとっての意味）</label><textarea rows="1" data-mf="${x.id}|dakara">${esc(x.dakara||'')}</textarea></div></div>
+    <label>決まったこと・メモ</label><textarea rows="2" data-mf="${x.id}|memo">${esc(x.memo||'')}</textarea>
+    <label>次にやること（1行に1つ。→TODO で登録）</label><textarea rows="2" data-mf="${x.id}|next">${esc(x.next||'')}</textarea>
+    <div class="nx">${(x.next||'').split('\n').map(l=>l.trim()).filter(Boolean).map((l,i)=>(x.made||[]).includes(l)?`<span class="tg">✓ TODO済：${esc(cut(l,24))}</span>`:`<button class="btn s" data-mn="${x.id}|${i}">→TODO：${esc(cut(l,24))}</button>`).join('')}</div></div>`;
+  m.innerHTML=`
+  <div class="card"><div class="row"><button class="btn s" id="dyP">◀</button><b class="grow" style="text-align:center;font-size:17px">${jDate(s)}${isT?'（今日）':''} ${hn?`<span class="over">${esc(hn)}</span>`:''}</b>${isT?'':'<button class="btn s" id="dyT">今日</button>'}<button class="btn s" id="dyN">▶</button></div>
+  <div class="dyh"><span class="muted">今週のゴール：</span>${gs.length?gs.map((g,i)=>`<span class="gl">${i+1}. ${esc(g)}</span>`).join(''):'<span class="link" id="dyG">未設定（TODO →「今週」で決める）</span>'}</div>
+  ${evs.length?`<div class="dyh"><span class="muted">この日の予定：</span>${evs.map(e=>`<span class="evc" data-ev="${e.id}"><i style="background:${evColor(e)}"></i>${esc(evTime(e))} ${esc(e.title)}</span>`).join('')}</div>`:''}
+  ${isT&&!TM.open?'<div class="row" style="margin-top:6px"><button class="btn s" id="tmOpen">⏱ やる気が出ないとき：4分だけやってみる</button></div>':''}</div>
+  ${tmC}
+  <div class="sp">
+   <div class="card z1"><div class="zh">1　${isT?'今日':'この日'}のTODO</div>
+    ${isT?'<div class="row" style="margin-bottom:4px"><input type="text" id="dyIn" class="grow" placeholder="今日やることを1行で追加" style="flex:1"><button class="btn p" id="dyAdd">追加</button></div>':''}
+    ${openD.length||doneD.length?openD.map(t=>tdRow(t,{day:s})).join('')+doneD.map(t=>tdRow(t,{day:s})).join(''):`<p class="muted">${isT?'着手予定日・期限が今日までのTODO、催促日が来た待ちのTODOがここに出ます。下の候補から選べます。':'この日のTODOの記録はありません。'}</p>`}
+    ${pick.length?`<details class="pk" id="dyPk" ${S.pkOpen?'open':''}><summary>候補から選ぶ（今週・期限が7日以内・受信箱：${pick.length}件）</summary>${pick.map(t=>tdRow(t,{pick:1})).join('')}</details>`:''}
+    <p class="muted" style="margin:6px 0 0">並び順：期限切れ → ほかのTODOを止めているもの → 優先度 → 期限。先に終わらせるTODOを待っているものは後ろへ。</p></div>
+   <div class="card z2"><div class="zh">2　障害と対策（もし○○になったら → △△する）</div>
+    ${z2.length?z2.map(t=>{const dp=tDepT(t);const rm=t.st==='wait'&&t.remind&&t.remind<=s;return `<div class="rk" data-rk="${t.id}"><b>${esc(cut(t.title,34))}</b>${t.who?` <span class="muted">［${esc(t.who)}］</span>`:''}${rm?' <span class="tg w x">催促日</span>':''}
+      ${dp&&!dp.done?`<div class="muted">先に「${esc(cut(dp.title,24))}」が必要</div>`:''}
+      <div>もし ${t.risk?esc(t.risk):'<span class="muted">（未記入）</span>'} → ${t.fix?esc(t.fix):'<span class="muted">（未記入）</span>'}</div></div>`}).join(''):'<p class="muted">相手を入れたTODO・待ちのTODO・依存のあるTODOがここに出ます。他の人が絡むTODOほど遅れやすいので、「もし → 対策」を先に書いておくと、起きても想定内になります。</p>'}</div>
+   <div class="card z3"><div class="zh">3　振り返り</div>
+    ${openD.length?`<p class="muted" style="margin:0 0 4px">できなかったTODOについて、目標 → 現状 → ギャップと、原因・対策を書きます。</p>${openD.map(revRow).join('')}<div class="row" style="margin-top:6px"><button class="btn s" id="dyMv">未完了を${isT?'すべて明日へ':'すべて翌日へ'}</button></div>`:`<p class="muted" style="margin:0 0 4px">${doneD.length?'TODOはすべて完了です。':'未完了のTODOはありません。'}</p>`}
+    <label class="muted" style="display:block;margin:8px 0 3px">今日のひとこと（気づき・学び）</label><textarea id="dyNote" rows="2">${esc(d.note||'')}</textarea>
+    <div class="row" style="margin-top:6px"><button class="btn s" id="dyLrn">📘 学びとしてメモに残す（#学び）</button></div></div>
+  </div>
+  <div class="card"><div class="row"><div class="zh grow" style="margin:0">会議・会話のメモ</div><button class="btn s p" id="dyMt">＋追加</button></div>
+   <p class="muted" style="margin:4px 0 6px">その日の会議・打ち合わせ・やり取りだけを書きます。「要は何？」「だから何？」で短くまとめ、次にやることはTODOにします。アイデアや考えごとは「メモ」タブへ。</p>
+   ${(d.meets||[]).length?d.meets.map(meet).join(''):'<p class="muted">まだありません。</p>'}</div>`;
+  $('#dyP').onclick=()=>{flushAuto();S.day=addDays(s,-1);render()};$('#dyN').onclick=()=>{flushAuto();S.day=addDays(s,1);render()};
+  if($('#dyT'))$('#dyT').onclick=()=>{flushAuto();S.day=null;render()};
+  if($('#dyG'))$('#dyG').onclick=()=>{ui.todoV='week';S.wk=null;setTab('todo')};
+  const pk=$('#dyPk');if(pk)pk.ontoggle=()=>{S.pkOpen=pk.open};
+  if(isT){
+    const add=()=>{const v=$('#dyIn').value.trim();if(!v)return;db.todos.push(touch({id:uid(),title:v,done:false,due:'',plan:s,eventId:null,note:'',createdAt:now()}));$('#dyIn').value='';commit()};
+    $('#dyAdd').onclick=add;$('#dyIn').onkeydown=e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();add()}};
+    if($('#tmOpen'))$('#tmOpen').onclick=()=>{TM.open=true;render()};
+  }
+  if(TM.open&&$('#tmS')){
+    $('#tmT').onchange=e=>{TM.tid=e.target.value};
+    $('#tmS').onclick=tmStart;$('#tmR').onclick=tmReset;$('#tmX').onclick=()=>{TM.open=false;tmReset()};
+    if($('#tmA'))$('#tmA').onclick=()=>{TM.left=TM.len;TM.fin=false;tmStart()};
+    if($('#tmDn'))$('#tmDn').onclick=()=>{const x=db.todos.find(y=>y.id===TM.tid);if(x){x.done=true;x.doneAt=now();touch(x)}TM.open=false;TM.left=TM.len;TM.fin=false;commit()};
+    if($('#tmO'))$('#tmO').onclick=()=>{TM.open=false;TM.left=TM.len;TM.fin=false;S.pkOpen=true;render();const z=document.querySelector('.z1');if(z)z.scrollIntoView({behavior:'smooth'})};
+  }
+  if($('#dyMv'))$('#dyMv').onclick=()=>{flushAuto();const nx=addDays(s,1);openD.forEach(t=>{t.plan=nx;touch(t)});commit();toast(openD.length+'件を'+jDate(nx)+'に回しました')};
+  $('#dyNote').oninput=()=>autoSave(()=>{const x=dayGet(s);x.note=$('#dyNote').value;touch(x)});
+  $('#dyLrn').onclick=()=>{flushAuto();const v=($('#dyNote').value||'').trim();if(!v){toast('「今日のひとこと」に書いてから押してください');return}db.memos.push(touch({id:uid(),text:`${jDate(s)}の学び #学び\n${v}`,pinned:false,createdAt:now()}));commitQuiet();toast('メモに残しました（#学び）')};
+  m.querySelectorAll('[data-rv]').forEach(el=>{autoGrow(el);el.oninput=()=>{autoGrow(el);const id=el.dataset.rv.split('|')[0];autoSave(()=>{const x=dayGet(s);const t=db.todos.find(y=>y.id===id);const r=x.revs[id]=Object.assign({title:t?t.title:''},x.revs[id]||{});m.querySelectorAll(`[data-rv^="${id}|"]`).forEach(e2=>{r[e2.dataset.rv.split('|')[1]]=e2.value});touch(x)})}});
+  m.querySelectorAll('[data-mf]').forEach(el=>{if(el.tagName==='TEXTAREA')autoGrow(el);el.oninput=()=>{if(el.tagName==='TEXTAREA')autoGrow(el);const id=el.dataset.mf.split('|')[0];autoSave(()=>{const x=dayGet(s);const mt=x.meets.find(y=>y.id===id);if(!mt)return;m.querySelectorAll(`[data-mf^="${id}|"]`).forEach(e2=>{mt[e2.dataset.mf.split('|')[1]]=e2.value});touch(x)})};if(el.dataset.mf.endsWith('|next'))el.onblur=()=>{if(autoSave.f){flushAuto();render()}}});
+  $('#dyMt').onclick=()=>{flushAuto();const x=dayGet(s);x.meets.push({id:uid(),title:'',time:'',yoha:'',dakara:'',memo:'',next:'',made:[]});touch(x);commit();setTimeout(()=>{const l=m.querySelectorAll('[data-mf$="|title"]');if(l.length)l[l.length-1].focus()},0)};
+  m.querySelectorAll('[data-mdel]').forEach(b=>b.onclick=()=>{if(!confirm('この会議・会話のメモを削除しますか？'))return;flushAuto();const x=dayGet(s);x.meets=x.meets.filter(y=>y.id!==b.dataset.mdel);touch(x);commit()});
+  m.querySelectorAll('[data-mn]').forEach(b=>b.onclick=()=>{flushAuto();const [id,i]=b.dataset.mn.split('|');const x=dayGet(s);const mt=x.meets.find(y=>y.id===id);if(!mt)return;
+    const l=(mt.next||'').split('\n').map(v=>v.trim()).filter(Boolean)[+i];if(!l)return;
+    db.todos.push(touch({id:uid(),title:l,done:false,due:'',eventId:null,note:`${jDate(s)}「${mt.title||'会議・会話'}」より`,createdAt:now()}));
+    mt.made=[...(mt.made||[]),l];touch(x);commit();toast('TODOに登録しました（受信箱）')});
+  m.querySelectorAll('[data-rk]').forEach(el=>el.onclick=()=>{const x=db.todos.find(y=>y.id===el.dataset.rk);if(x)editTodo(x)});
+  bindRows(m);
 }
 
 /* ---- 確認事項（Markdown表示） ---- */
@@ -1194,7 +1451,7 @@ function rSet(m){
   <label class="muted">週の始まり</label><select id="cW"><option value="0" ${+cfg.weekStart===0?'selected':''}>日曜</option><option value="1" ${+cfg.weekStart===1?'selected':''}>月曜</option></select></div>
   <div class="card"><h2 style="margin-top:0">バックアップ</h2>
   <div class="row"><button class="btn" id="bE">JSONで書き出す</button><label class="btn" style="cursor:pointer">JSONを読み込む（合体）<input type="file" id="bI" accept=".json" class="hide"></label></div>
-  <p class="muted">件数：メモ ${live(db.memos).length}／予定 ${live(db.events).length}（うちGoogle取込 ${live(db.events).filter(e=>e.src==='google').length}）／TODO ${live(db.todos).length}</p>
+  <p class="muted">件数：メモ ${live(db.memos).length}／予定 ${live(db.events).length}（うちGoogle取込 ${live(db.events).filter(e=>e.src==='google').length}）／TODO ${live(db.todos).length}／日次ページ ${db.days.filter(d=>!d.deleted).length}／週 ${db.weeks.filter(d=>!d.deleted).length}</p>
   <button class="btn s d" id="gDelAll">Googleから取り込んだ予定をすべて削除</button></div>
   <div class="card help"><h2 style="margin-top:0">使い方のコツ</h2><ul>
   <li>スマホはブラウザの「ホーム画面に追加」でアプリのように使えます。</li>
