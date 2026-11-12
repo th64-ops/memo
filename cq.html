@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>臨床疑問ノート</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#222;--sub:#6b6b6b;--line:#e2e0d9;--acc:#2f5d50;--acc2:#e6efeb;--red:#c0392b;--warn:#b7791f;--mark:#fff3b0}
+@media (prefers-color-scheme:dark){:root{--bg:#161817;--card:#212423;--ink:#e8e8e6;--sub:#9a9d9b;--line:#363b39;--acc:#7fbfa8;--acc2:#25332e;--red:#e57368;--warn:#e0b25a;--mark:#5a4e10}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Meiryo","メイリオ","MS Gothic","ＭＳ ゴシック",sans-serif;font-size:15px;line-height:1.65}
+header{position:sticky;top:0;z-index:20;background:var(--card);border-bottom:1px solid var(--line);padding:calc(6px + env(safe-area-inset-top)) 10px 6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+header h1{font-size:16px;margin:0 6px 0 0;cursor:pointer;white-space:nowrap}
+.st{font-size:12px;color:var(--sub);margin-left:auto;white-space:nowrap}
+.st.err{color:var(--red)}
+main{max-width:960px;margin:0 auto;padding:10px 10px 60px}
+.btn{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:5px 10px;cursor:pointer}
+.btn.p{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.s{font-size:12.5px;padding:3px 8px}
+.btn.d{color:var(--red)}
+.btn.on{background:var(--acc2);border-color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 10px}
+.muted{color:var(--sub);font-size:13px}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+input[type=text],input[type=search],input[type=password],input[type=date],select,textarea{font:inherit;font-size:15px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--card);color:var(--ink);max-width:100%}
+textarea{width:100%;min-height:9em}
+.search{width:100%;font-size:16px;padding:9px 12px}
+h2{font-size:16px;margin:14px 0 8px}
+h3.g{font-size:14px;margin:12px 0 6px;color:var(--acc)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.fb{display:flex;justify-content:space-between;align-items:center;gap:4px;text-align:left;font:inherit;font-size:14px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 10px;cursor:pointer;min-height:44px}
+.fb .n{font-size:12px;color:var(--sub);white-space:nowrap}
+.fb .n b{color:var(--acc)}
+.fb.z{opacity:.45}
+.stats{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.item{display:flex;gap:8px;align-items:flex-start;border-top:1px solid var(--line);padding:9px 2px}
+.item:first-child{border-top:0}
+.item .grow{flex:1;min-width:0;cursor:pointer}
+.item .t{font-weight:bold}
+.item.read .t{font-weight:normal;color:var(--sub)}
+.chk{width:22px;height:22px;margin-top:2px;flex:none;cursor:pointer}
+.flag{border:0;background:none;font-size:18px;cursor:pointer;opacity:.25;padding:0 2px;flex:none}
+.flag.on{opacity:1}
+.tag{display:inline-block;font-size:12px;background:var(--acc2);color:var(--acc);border-radius:10px;padding:0 7px;margin:1px 3px 1px 0;cursor:pointer}
+.conf{font-size:12px;border:1px solid var(--line);border-radius:6px;padding:0 5px;margin-right:4px}
+.conf.c1{border-color:var(--acc);color:var(--acc)}.conf.c3{border-color:var(--warn);color:var(--warn)}
+mark{background:var(--mark);color:inherit}
+.snip{font-size:13px;color:var(--sub);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.md{overflow-wrap:anywhere}
+.md h1,.md h2,.md h3,.md h4{margin:14px 0 6px;line-height:1.4}
+.md h1{font-size:18px}.md h2{font-size:16.5px;border-bottom:1px solid var(--line);padding-bottom:2px}.md h3{font-size:15.5px}.md h4{font-size:15px}
+.md p{margin:6px 0}
+.md ul,.md ol{margin:4px 0;padding-left:1.4em}
+.md blockquote{margin:6px 0;padding:2px 10px;border-left:3px solid var(--acc);color:var(--sub)}
+.md code{font-family:"MS Gothic","ＭＳ ゴシック",monospace;background:var(--acc2);padding:0 3px;border-radius:3px}
+.md pre{background:var(--acc2);padding:8px;border-radius:8px;overflow:auto}
+.md pre code{background:none;padding:0}
+.tw{overflow-x:auto;margin:6px 0}
+.md table{border-collapse:collapse;font-size:14px;min-width:60%}
+.md th,.md td{border:1px solid var(--line);padding:4px 7px;vertical-align:top}
+.md th{background:var(--acc2)}
+.md hr{border:0;border-top:1px solid var(--line);margin:12px 0}
+.meta{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:13.5px}
+.meta dt{color:var(--sub)}.meta dd{margin:0}
+.crumb{font-size:13px;margin:0 0 8px}
+.crumb a{color:var(--acc);cursor:pointer;text-decoration:underline}
+a{color:var(--acc)}
+.prev{border-top:1px solid var(--line);padding:8px 0}
+.new{color:var(--acc);font-weight:bold}.ow{color:var(--warn);font-weight:bold}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#333;color:#fff;padding:8px 14px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+#toast.on{opacity:.95}
+.fl{display:block;margin:8px 0 2px;font-size:13px;color:var(--sub)}
+details.card>summary{cursor:pointer;font-weight:bold}
+@media print{header,.noprint{display:none}body{background:#fff}.card{border:0}}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="home">📚 臨床疑問ノート</h1>
+  <button class="btn s" data-go="#/">ホーム</button>
+  <button class="btn s" data-go="#/imp">取り込み</button>
+  <button class="btn s" data-go="#/set">設定</button>
+  <button class="btn s" id="syncBtn" title="今すぐ同期">⟳</button>
+  <span class="st" id="st"></span>
+</header>
+<main id="main"></main>
+<div id="toast"></div>
+<script>
+'use strict';
+const VER='v2026-11-12';
+/* ===== 分野（D:\1,books\0.分野別統合 の番号に合わせる） ===== */
+const GROUPS=[
+ ['総論・GL・規約',['010_頻用','101_規約','110_GL','120_問題集','130_読本','300_外科総論']],
+ ['消化管・臓器',['200_消化管','210_食道','220_胃','231_肝胆膵','232_肝','233_胆','234_膵','240_大腸','241_小腸','250_肛門','260_ヘルニア','270_乳腺','280_他臓器']],
+ ['腫瘍・病理・化学療法・緩和',['400_腫瘍','401_病理','410_CTRX','420_緩和']],
+ ['手術・解剖・手技',['501_手術','502_解剖','503_手技']],
+ ['救急・ICU・周術期',['511_救急','512_急性腹症','513_ICU','520_周術期','530_栄養','540_麻酔']],
+ ['内視鏡・画像・検査',['610_内視鏡','620_CT_MRI','630_LD','640_US','650_検査その他']],
+ ['薬剤・内科・他科・感染症',['700_薬剤','810_内科','820_他科','830_感染症']],
+ ['その他',['910_その他','021_同意書','031_paper','041_マニュアル']]
+];
+const FIELDS=GROUPS.flatMap(g=>g[1]);
+const fName=f=>f.replace(/^\d+_/,'');
+function normField(s){
+  s=String(s||'').trim().replace(/\s+/g,'');if(!s)return null;
+  if(FIELDS.includes(s))return s;
+  const num=(s.match(/^(\d{3})/)||[])[1];
+  if(num){const f=FIELDS.find(x=>x.startsWith(num+'_'));if(f)return f}
+  const f2=FIELDS.find(x=>fName(x)===s||fName(x).toLowerCase()===s.toLowerCase());
+  return f2||null;
+}
+const CONFS=['確実','おそらく','不確実'];
+
+/* ===== 共通 ===== */
+const $=s=>document.querySelector(s);
+const $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const now=()=>Date.now();
+const pad=n=>String(n).padStart(2,'0');
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+const fmtTs=t=>{const d=new Date(t);return d.getFullYear()+'/'+pad(d.getMonth()+1)+'/'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())};
+function lsGet(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){toast('端末への保存に失敗（容量不足の可能性）');return false}}
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),2400)}
+function hash(s){let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}return h.toString(36)}
+const normTitle=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+const mkId=(created,title)=>'e'+hash((created||'')+'|'+normTitle(title));
+function download(name,text,type){const b=new Blob([text],{type:type||'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+async function copyText(t){try{await navigator.clipboard.writeText(t);toast('コピーしました')}catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('コピーしました')}catch(_){toast('コピーできませんでした')}ta.remove()}}
+
+/* ===== データ ===== */
+const LS={data:'cq.data',cfg:'cq.cfg',pending:'cq.pending'};
+const DATA_PATH='rinsho/data.json';
+const emptyDB=()=>({v:1,entries:[],marks:{}});
+let db=Object.assign(emptyDB(),lsGet(LS.data)||{});
+let pending=!!lsGet(LS.pending);
+const live=()=>db.entries.filter(e=>!e.deleted);
+const mark=id=>db.marks[id]||{};
+function saveLocal(){lsSet(LS.data,db)}
+function commit(){saveLocal();pending=true;lsSet(LS.pending,true);schedulePush()}
+function setMark(id,k,v){const m=Object.assign({},mark(id));m[k]=v;m.at=now();db.marks[id]=m;commit()}
+
+/* ===== GitHub 同期（メモ帖と同じリポジトリ memo-data を使う） ===== */
+// 自分の設定が無ければ、同じ場所（github.io）で開いたメモ帖の設定（msb.cfg）を使う
+function getCfg(){
+  const own=lsGet(LS.cfg);
+  if(own&&own.owner&&own.repo&&own.token)return Object.assign({src:'own'},own);
+  const m=lsGet('msb.cfg');
+  if(m&&m.owner&&m.repo&&m.token)return {owner:m.owner,repo:m.repo,token:m.token,src:'memo'};
+  return {owner:'',repo:'',token:'',src:'none'};
+}
+let cfg=getCfg();
+const configured=()=>cfg.owner&&cfg.repo&&cfg.token;
+function b64enc(s){const b=new TextEncoder().encode(s);let bin='';for(let i=0;i<b.length;i+=0x8000)bin+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(bin)}
+function b64dec(s){const bin=atob(s.replace(/\s/g,''));const b=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)b[i]=bin.charCodeAt(i);return new TextDecoder().decode(b)}
+function api(path,{method='GET',body=null,raw=false}={}){
+  const u='https://api.github.com/repos/'+encodeURIComponent(cfg.owner)+'/'+encodeURIComponent(cfg.repo)+'/contents/'+path+(method==='GET'?'?t='+now():'');
+  const h={'Authorization':'Bearer '+cfg.token,'Accept':raw?'application/vnd.github.raw+json':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
+  if(body)h['Content-Type']='application/json';
+  return fetch(u,{method,headers:h,cache:'no-store',body:body?JSON.stringify(body):undefined});
+}
+function apiErr(r){
+  if(r.status===401)return 'トークンが無効か期限切れ（GitHubで作り直して設定に貼る）';
+  if(r.status===403)return 'トークンに書き込み権限がない（Contents: Read and write）';
+  if(r.status===404)return 'リポジトリが見つからない（名前・トークンの対象を確認）';
+  return 'GitHubエラー '+r.status;
+}
+async function getFile(path){
+  const r=await api(path);
+  if(r.status===404){
+    const r2=await fetch('https://api.github.com/repos/'+encodeURIComponent(cfg.owner)+'/'+encodeURIComponent(cfg.repo),{headers:{'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json'},cache:'no-store'});
+    if(!r2.ok)throw new Error(apiErr(r2));
+    return {text:null,sha:null};
+  }
+  if(!r.ok)throw new Error(apiErr(r));
+  const j=await r.json();let text;
+  if(j.content&&j.encoding==='base64')text=b64dec(j.content);
+  else{const r3=await api(path,{raw:true});if(!r3.ok)throw new Error(apiErr(r3));text=await r3.text()}
+  return {text,sha:j.sha};
+}
+function putFile(path,text,sha,msg){const body={message:msg,content:b64enc(text)};if(sha)body.sha=sha;return api(path,{method:'PUT',body})}
+function mergeDB(a,b){
+  const out=emptyDB();const m=new Map();
+  for(const x of (b.entries||[]))m.set(x.id,x);
+  for(const x of (a.entries||[])){const y=m.get(x.id);if(!y||(x.updatedAt||0)>=(y.updatedAt||0))m.set(x.id,x)}
+  out.entries=[...m.values()].sort((p,q)=>(q.created||'').localeCompare(p.created||'')||(p.id<q.id?-1:1));
+  const ks=new Set([...Object.keys(a.marks||{}),...Object.keys(b.marks||{})]);
+  for(const k of ks){const x=(a.marks||{})[k],y=(b.marks||{})[k];out.marks[k]=(!y||(x&&(x.at||0)>=(y.at||0)))?x:y}
+  return out;
+}
+function setStatus(s,msg){
+  if(!configured()&&s!=='err')s='off';
+  const el=$('#st');el.classList.toggle('err',s==='err');
+  el.textContent=s==='sync'?'同期中…':s==='err'?('⚠ '+msg):s==='ok'?'✓ 同期済':s==='off'?'未設定（この端末だけ）':pending?'● 未送信':'';
+  if(s==='err')el.title=msg;
+}
+let syncing=false;
+async function sync(){
+  if(!configured()){setStatus('off');return}
+  if(syncing)return;syncing=true;setStatus('sync');
+  try{
+    for(let i=0;i<3;i++){
+      const f=await getFile(DATA_PATH);
+      const remote=f.text?JSON.parse(f.text):emptyDB();
+      const merged=mergeDB(db,remote);
+      const changed=JSON.stringify(merged)!==JSON.stringify(mergeDB(remote,emptyDB()));
+      db=merged;saveLocal();
+      if(!changed&&!(pending&&!f.sha)){pending=false;lsSet(LS.pending,false);break}
+      const r=await putFile(DATA_PATH,JSON.stringify(merged,null,1),f.sha,'臨床疑問ノートを更新 '+fmtTs(now()));
+      if(r.ok){pending=false;lsSet(LS.pending,false);break}
+      if(r.status!==409&&r.status!==422)throw new Error(apiErr(r));
+    }
+    setStatus('ok');
+  }catch(e){setStatus('err',e.message||'通信できません（オフライン？）')}
+  finally{syncing=false;render()}
+}
+let pushT=null;
+function schedulePush(){setStatus();clearTimeout(pushT);pushT=setTimeout(sync,1500)}
+
+/* ===== 取り込み形式の読み取り =====
+@@@CQ
+題名: …
+分野: 220_胃, 400_腫瘍
+作成日: 2026-11-12
+最終確認日: 2026-11-12
+確信度: おそらく
+タグ: …, …
+元チャット: …
+URL: https://claude.ai/chat/…
+@@@本文
+（Markdown）
+@@@END
+*/
+const KEYS={'題名':'title','タイトル':'title','分野':'fields','作成日':'created','最終確認日':'checked','確信度':'conf','タグ':'tags','元チャット':'chat','チャット':'chat','URL':'url','url':'url','元URL':'url'};
+function parseImport(txt){
+  txt=String(txt||'').replace(/\r\n?/g,'\n').replace(/^\uFEFF/,'');
+  const out=[];
+  const re=/^@@@CQ[ \t]*$/m;
+  if(!re.test(txt))return out;
+  const parts=txt.split(/^@@@CQ[ \t]*$/m).slice(1);
+  for(const p of parts){
+    const bi=p.search(/^@@@本文[ \t]*$/m);
+    const head=bi>=0?p.slice(0,bi):p;
+    let body=bi>=0?p.slice(bi).replace(/^@@@本文[ \t]*\n?/,''):'';
+    const ei=body.search(/^@@@END[ \t]*$/m);if(ei>=0)body=body.slice(0,ei);
+    const e={title:'',fields:[],created:'',checked:'',conf:'',tags:[],chat:'',url:'',body:body.replace(/^\n+|\s+$/g,'')+'\n',bad:[]};
+    for(const line of head.split('\n')){
+      const m=line.match(/^\s*([^:：]+?)\s*[:：]\s*(.*)$/);if(!m)continue;
+      const k=KEYS[m[1].trim()];if(!k)continue;const v=m[2].trim();
+      if(k==='fields'){for(const s of v.split(/[,、，\/／]/)){if(!s.trim())continue;const f=normField(s);if(f){if(!e.fields.includes(f))e.fields.push(f)}else e.bad.push(s.trim())}}
+      else if(k==='tags')e.tags=v.split(/[,、，]/).map(s=>s.trim().replace(/^#/,'')).filter(Boolean);
+      else if(k==='created'||k==='checked')e[k]=normDate(v);
+      else e[k]=v;
+    }
+    if(!e.title){const h=e.body.match(/^#{1,3}\s+(.+)$/m);e.title=h?h[1].trim():'（題名なし）'}
+    if(!e.created)e.created=today();
+    if(!e.checked)e.checked=e.created;
+    out.push(e);
+  }
+  return out;
+}
+function normDate(v){const m=String(v).match(/(\d{4})[-\/年.](\d{1,2})[-\/月.](\d{1,2})/);return m?m[1]+'-'+pad(+m[2])+'-'+pad(+m[3]):''}
+function toImportText(e){
+  return ['@@@CQ','題名: '+e.title,'分野: '+e.fields.join(', '),'作成日: '+(e.created||''),'最終確認日: '+(e.checked||''),'確信度: '+(e.conf||''),'タグ: '+(e.tags||[]).join(', '),'元チャット: '+(e.chat||''),'URL: '+(e.url||''),'@@@本文',(e.body||'').replace(/\s+$/,''),'@@@END',''].join('\n');
+}
+function upsert(p){
+  const id=mkId(p.created,p.title);
+  const old=db.entries.find(x=>x.id===id);
+  const e={id,title:p.title,fields:p.fields.length?p.fields:['010_頻用'],created:p.created,checked:p.checked,conf:p.conf,tags:p.tags,chat:p.chat,url:p.url,body:p.body,hist:[],updatedAt:now()};
+  if(old){
+    e.hist=(old.hist||[]).slice(0,4);
+    if(!old.deleted&&old.body!==p.body)e.hist.unshift({at:old.updatedAt,body:old.body,checked:old.checked});
+    e.hist=e.hist.slice(0,5);
+    if(old.body!==p.body){const m=Object.assign({},mark(id));m.read=false;m.at=now();db.marks[id]=m}
+  }
+  const i=db.entries.findIndex(x=>x.id===id);
+  if(i>=0)db.entries[i]=e;else db.entries.push(e);
+  return old&&!old.deleted?'ow':'new';
+}
+
+/* ===== Markdown 表示（外部ライブラリなし） ===== */
+function inl(s){
+  let t=esc(s);
+  const codes=[];t=t.replace(/`([^`]+)`/g,(_,c)=>{codes.push(c);return '\u0000'+(codes.length-1)+'\u0000'});
+  t=t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  t=t.replace(/(^|[^"=>])(https?:\/\/[^\s<）)」]+)/g,'$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  t=t.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  t=t.replace(/==([^=]+)==/g,'<mark>$1</mark>');
+  t=t.replace(/\u0000(\d+)\u0000/g,(_,i)=>'<code>'+codes[+i]+'</code>');
+  return t;
+}
+function splitRow(l){l=l.trim().replace(/^\|/,'').replace(/\|$/,'');const c=[];let cur='',bt=false;for(let i=0;i<l.length;i++){const ch=l[i];if(ch==='`')bt=!bt;if(ch==='\\'&&l[i+1]==='|'){cur+='|';i++;continue}if(ch==='|'&&!bt){c.push(cur);cur=''}else cur+=ch}c.push(cur);return c.map(x=>x.trim())}
+function md(src){
+  const L=String(src||'').replace(/\r/g,'').split('\n');let h='',i=0,para=[];
+  const flush=()=>{if(para.length){h+='<p>'+para.map(inl).join('<br>')+'</p>';para=[]}};
+  while(i<L.length){
+    const l=L[i];
+    if(/^\s*```/.test(l)){flush();const buf=[];i++;while(i<L.length&&!/^\s*```/.test(L[i]))buf.push(L[i++]);i++;h+='<pre><code>'+esc(buf.join('\n'))+'</code></pre>';continue}
+    if(/^\s*$/.test(l)){flush();i++;continue}
+    let m;
+    if((m=l.match(/^(#{1,6})\s+(.*)$/))){flush();const n=Math.min(m[1].length+1,4);h+='<h'+n+'>'+inl(m[2])+'</h'+n+'>';i++;continue}
+    if(/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(l)){flush();h+='<hr>';i++;continue}
+    if(/^\s*\|/.test(l)&&i+1<L.length&&/^\s*\|?\s*:?-{2,}/.test(L[i+1])){
+      flush();const hd=splitRow(l);i+=2;const rows=[];while(i<L.length&&/^\s*\|/.test(L[i]))rows.push(splitRow(L[i++]));
+      h+='<div class="tw"><table><thead><tr>'+hd.map(c=>'<th>'+inl(c)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>'<td>'+inl(c).replace(/&lt;br\s*\/?&gt;/g,'<br>')+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';continue}
+    if(/^\s*>/.test(l)){flush();const buf=[];while(i<L.length&&/^\s*>/.test(L[i]))buf.push(L[i++].replace(/^\s*>\s?/,''));h+='<blockquote>'+md(buf.join('\n'))+'</blockquote>';continue}
+    if(/^\s*([-*+]|\d+[.)])\s+/.test(l)){
+      flush();
+      const stack=[];
+      while(i<L.length&&/^\s*([-*+]|\d+[.)])\s+/.test(L[i])){
+        const mm=L[i].match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);const ind=Math.floor(mm[1].replace(/\t/g,'  ').length/2);const tg=/\d/.test(mm[2])?'ol':'ul';
+        while(stack.length>ind+1){h+='</li></'+stack.pop()+'>'}
+        if(stack.length<ind+1){while(stack.length<ind+1){h+='<'+tg+'>';stack.push(tg)}h+='<li>'+inl(mm[3])}
+        else h+='</li><li>'+inl(mm[3]);
+        i++;
+        while(i<L.length&&/^\s{2,}\S/.test(L[i])&&!/^\s*([-*+]|\d+[.)])\s+/.test(L[i])){h+='<br>'+inl(L[i].trim());i++}
+      }
+      while(stack.length)h+='</li></'+stack.pop()+'>';
+      continue}
+    para.push(l);i++;
+  }
+  flush();return h;
+}
+
+/* ===== 検索 ===== */
+const hay=e=>(e.title+' '+(e.tags||[]).join(' ')+' '+e.fields.join(' ')+' '+(e.chat||'')+' '+e.body).toLowerCase();
+function search(q,list){
+  const ws=q.toLowerCase().split(/[\s　]+/).filter(Boolean);if(!ws.length)return list;
+  return list.filter(e=>{const s=hay(e);return ws.every(w=>s.includes(w))});
+}
+function hl(text,q){
+  let t=esc(text);const ws=String(q||'').split(/[\s　]+/).filter(Boolean).sort((a,b)=>b.length-a.length);
+  for(const w of ws){const r=new RegExp(esc(w).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');t=t.replace(r,m=>'<mark>'+m+'</mark>')}
+  return t;
+}
+function snippet(e,q){
+  const plain=e.body.replace(/:?-{3,}:?/g,' ').replace(/[#*`>|=]/g,' ').replace(/\s+/g,' ').trim();
+  const ws=String(q||'').toLowerCase().split(/[\s　]+/).filter(Boolean);
+  let p=0;if(ws.length){const k=plain.toLowerCase().indexOf(ws[0]);if(k>30)p=k-30}
+  return (p?'…':'')+plain.slice(p,p+140);
+}
+
+/* ===== 画面 ===== */
+let ST={q:'',lf:'all',edit:null,imp:null};
+function route(){const h=location.hash||'#/';const [_,a,...b]=h.split('/');return {a:a||'',b:decodeURIComponent(b.join('/')||'')}}
+const go=h=>{location.hash=h};
+const confBadge=c=>c?`<span class="conf ${c==='確実'?'c1':c==='不確実'?'c3':''}">${esc(c)}</span>`:'';
+function itemHTML(e,q){
+  const m=mark(e.id);
+  return `<div class="item ${m.read?'read':''}">
+    <input type="checkbox" class="chk" data-read="${e.id}" ${m.read?'checked':''} title="既読">
+    <div class="grow" data-open="${e.id}">
+      <div class="t">${hl(e.title,q)}</div>
+      <div class="muted">${confBadge(e.conf)}作成 ${esc(e.created)}${e.checked&&e.checked!==e.created?'・確認 '+esc(e.checked):''}　${e.fields.map(fName).map(esc).join('・')}</div>
+      ${(e.tags||[]).length?`<div>${e.tags.map(t=>`<span class="tag" data-tag="${esc(t)}">#${esc(t)}</span>`).join('')}</div>`:''}
+      ${q?`<div class="snip">${hl(snippet(e,q),q)}</div>`:''}
+    </div>
+    <button class="flag ${m.recheck?'on':''}" data-flag="${e.id}" title="要再確認">⚑</button>
+  </div>`;
+}
+function listHTML(list,q){
+  if(!list.length)return '<p class="muted">該当なし</p>';
+  return '<div class="card">'+list.map(e=>itemHTML(e,q)).join('')+'</div>';
+}
+function filterChips(list){
+  const n=k=>list.filter(e=>k==='all'?true:k==='unread'?!mark(e.id).read:!!mark(e.id).recheck).length;
+  return `<div class="row" style="margin:6px 0">${[['all','すべて'],['unread','未読'],['recheck','⚑ 要再確認']].map(([k,l])=>`<button class="btn s ${ST.lf===k?'on':''}" data-lf="${k}">${l} ${n(k)}</button>`).join('')}
+  <select id="sort" class="btn s"><option value="new">作成日が新しい順</option><option value="old">作成日が古い順</option><option value="chk">確認日が古い順</option><option value="title">題名順</option></select></div>`;
+}
+function applyLF(list){
+  if(ST.lf==='unread')list=list.filter(e=>!mark(e.id).read);
+  if(ST.lf==='recheck')list=list.filter(e=>mark(e.id).recheck);
+  const s=ST.sort||'new';
+  const c={new:(a,b)=>(b.created||'').localeCompare(a.created||''),old:(a,b)=>(a.created||'').localeCompare(b.created||''),chk:(a,b)=>(a.checked||a.created||'').localeCompare(b.checked||b.created||''),title:(a,b)=>a.title.localeCompare(b.title,'ja')}[s];
+  return list.slice().sort(c);
+}
+function vHome(){
+  const L=live();
+  const cnt={},un={};for(const e of L)for(const f of e.fields){cnt[f]=(cnt[f]||0)+1;if(!mark(e.id).read)un[f]=(un[f]||0)+1}
+  const nU=L.filter(e=>!mark(e.id).read).length,nR=L.filter(e=>mark(e.id).recheck).length;
+  const recent=L.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0,5);
+  return `<input type="search" class="search" id="q" placeholder="🔍 検索（題名・本文・タグ。空白で区切ると AND）" value="${esc(ST.q)}">
+  <div id="qres"></div>
+  <div id="homeBody" ${ST.q?'hidden':''}>
+  <div class="stats">
+    <button class="btn" data-go="#/l/all">全件 ${L.length}</button>
+    <button class="btn" data-go="#/l/unread">未読 ${nU}</button>
+    <button class="btn" data-go="#/l/recheck">⚑ 要再確認 ${nR}</button>
+  </div>
+  ${GROUPS.map(([g,fs])=>`<h3 class="g">${esc(g)}</h3><div class="grid">${fs.map(f=>`<button class="fb ${cnt[f]?'':'z'}" data-go="#/f/${encodeURIComponent(f)}"><span>${esc(fName(f))}<br><span class="muted">${f.slice(0,3)}</span></span><span class="n">${cnt[f]?`${un[f]?`<b>未読${un[f]}</b>／`:''}${cnt[f]}件`:'0'}</span></button>`).join('')}</div>`).join('')}
+  <h2>最近追加・更新</h2>${listHTML(recent)}
+  </div>`;
+}
+function vField(f){
+  const L=live().filter(e=>e.fields.includes(f));
+  return `<div class="crumb"><a data-go="#/">ホーム</a> ／ ${esc(f)}</div><h2>${esc(fName(f))}（${L.length}件）</h2>${filterChips(L)}${listHTML(applyLF(L))}`;
+}
+function vList(k){
+  const L=live();
+  return `<div class="crumb"><a data-go="#/">ホーム</a> ／ 全分野</div><h2>全分野</h2>${filterChips(L)}${listHTML(applyLF(L))}`;
+}
+function vTag(t){
+  const L=live().filter(e=>(e.tags||[]).includes(t));
+  return `<div class="crumb"><a data-go="#/">ホーム</a> ／ #${esc(t)}</div><h2>#${esc(t)}（${L.length}件）</h2>${filterChips(L)}${listHTML(applyLF(L))}`;
+}
+function vEntry(id){
+  const e=db.entries.find(x=>x.id===id&&!x.deleted);
+  if(!e)return '<p class="muted">見つかりません（削除されたか、まだ同期されていません）</p><button class="btn" data-go="#/">ホーム</button>';
+  const m=mark(id);
+  if(ST.edit===id)return vEdit(e);
+  return `<div class="crumb"><a data-go="#/">ホーム</a> ／ ${e.fields.map(f=>`<a data-go="#/f/${encodeURIComponent(f)}">${esc(fName(f))}</a>`).join('・')}</div>
+  <div class="card">
+    <h2 style="margin-top:0">${esc(e.title)}</h2>
+    <dl class="meta">
+      <dt>作成日</dt><dd>${esc(e.created)}</dd>
+      <dt>最終確認日</dt><dd>${esc(e.checked||'')}</dd>
+      ${e.conf?`<dt>確信度</dt><dd>${confBadge(e.conf)}</dd>`:''}
+      <dt>分野</dt><dd>${e.fields.map(esc).join('、')}</dd>
+      ${(e.tags||[]).length?`<dt>タグ</dt><dd>${e.tags.map(t=>`<span class="tag" data-tag="${esc(t)}">#${esc(t)}</span>`).join('')}</dd>`:''}
+      ${e.chat||e.url?`<dt>元チャット</dt><dd>${e.url?`<a href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.chat||e.url)}</a>`:esc(e.chat)}</dd>`:''}
+    </dl>
+    <div class="row noprint" style="margin-top:8px">
+      <label class="btn s ${m.read?'on':''}"><input type="checkbox" data-read="${e.id}" ${m.read?'checked':''}> 既読</label>
+      <button class="btn s ${m.recheck?'on':''}" data-flag="${e.id}">⚑ 要再確認${m.recheck?'（中）':''}</button>
+      <button class="btn s" id="cpBody">本文をコピー</button>
+      <button class="btn s" id="cpImp" title="Claude に見直しを頼むときに貼る">取り込み形式でコピー</button>
+      <button class="btn s" id="edBtn">編集</button>
+      <button class="btn s" onclick="print()">印刷</button>
+    </div>
+  </div>
+  <div class="card md">${md(e.body)}</div>
+  ${(e.hist||[]).length?`<details class="card noprint"><summary>以前の版（${e.hist.length}）</summary>${e.hist.map(h=>`<div class="prev"><div class="muted">${fmtTs(h.at)} 時点${h.checked?'（確認日 '+esc(h.checked)+'）':''}</div><div class="md">${md(h.body)}</div></div>`).join('')}</details>`:''}
+  <div class="row noprint"><button class="btn s d" id="delBtn">この項目を削除</button></div>`;
+}
+function vEdit(e){
+  return `<div class="card"><h2 style="margin-top:0">編集</h2>
+  <label class="fl">題名（変えると別の項目として扱われます）</label><input type="text" id="e_t" style="width:100%" value="${esc(e.title)}">
+  <label class="fl">分野（複数はカンマ区切り。番号だけでも可）</label><input type="text" id="e_f" style="width:100%" value="${esc(e.fields.join(', '))}">
+  <div class="row"><div><label class="fl">作成日</label><input type="date" id="e_c" value="${esc(e.created)}"></div>
+  <div><label class="fl">最終確認日</label><input type="date" id="e_k" value="${esc(e.checked||'')}"> <button class="btn s" id="e_today">今日</button></div>
+  <div><label class="fl">確信度</label><select id="e_cf"><option value=""></option>${CONFS.map(c=>`<option ${e.conf===c?'selected':''}>${c}</option>`).join('')}</select></div></div>
+  <label class="fl">タグ（カンマ区切り）</label><input type="text" id="e_g" style="width:100%" value="${esc((e.tags||[]).join(', '))}">
+  <label class="fl">元チャット名</label><input type="text" id="e_ch" style="width:100%" value="${esc(e.chat||'')}">
+  <label class="fl">元チャットのURL</label><input type="text" id="e_u" style="width:100%" value="${esc(e.url||'')}">
+  <label class="fl">本文（Markdown）</label><textarea id="e_b" style="min-height:22em">${esc(e.body)}</textarea>
+  <div class="row" style="margin-top:8px"><button class="btn p" id="e_save">保存</button><button class="btn" id="e_cancel">やめる</button></div></div>`;
+}
+function vImport(){
+  const P=ST.imp;
+  return `<div class="crumb"><a data-go="#/">ホーム</a> ／ 取り込み</div>
+  <div class="card"><h2 style="margin-top:0">取り込み</h2>
+  <p class="muted">Claude が作った取り込み用ファイル（<code>@@@CQ</code> で始まる .md／.txt）を選ぶか、テキストを貼り付けてください。同じ作成日・同じ題名のものは上書きされ、前の本文は「以前の版」に残ります。</p>
+  <div class="row"><input type="file" id="impF" accept=".md,.txt,.markdown,text/*" multiple></div>
+  <label class="fl">または貼り付け</label><textarea id="impT" placeholder="@@@CQ&#10;題名: …&#10;分野: 220_胃&#10;作成日: 2026-11-12&#10;@@@本文&#10;…&#10;@@@END"></textarea>
+  <div class="row" style="margin-top:6px"><button class="btn" id="impRead">読み取る</button><button class="btn s" id="impPaste">クリップボードから貼る</button></div>
+  </div>
+  ${P?`<div class="card"><h2 style="margin-top:0">確認（${P.length}件）</h2>
+    ${P.length?P.map((e,i)=>{const id=mkId(e.created,e.title);const ex=db.entries.find(x=>x.id===id&&!x.deleted);return `<div class="prev">
+      <label><input type="checkbox" class="impOn" data-i="${i}" checked> <span class="${ex?'ow':'new'}">${ex?'上書き':'新規'}</span> <b>${esc(e.title)}</b></label>
+      <div class="muted">作成 ${esc(e.created)}／${e.fields.length?esc(e.fields.join('、')):'<span class="ow">分野なし → 010_頻用 に入ります</span>'}${e.bad.length?'／<span class="ow">読めない分野：'+esc(e.bad.join('、'))+'</span>':''}／${e.body.length}字</div></div>`}).join(''):'<p class="muted">@@@CQ の区切りが見つかりませんでした。</p>'}
+    ${P.length?`<div class="row" style="margin-top:8px"><button class="btn p" id="impGo">チェックしたものを取り込む</button><button class="btn" id="impX">やめる</button></div>`:''}</div>`:''}
+  <details class="card"><summary>Claude への頼み方</summary>
+  <div class="md">${md(`チャットの最後に、次のように頼んでください。
+
+- 「このチャットを臨床疑問ノートへ」…このチャットの結論を1件（話題が分かれていれば複数件）にまとめます
+- 「まとめて飛ばして」…直近の複数の臨床疑問をまとめて1つのファイルにします
+
+**フォルダが接続されている端末（自宅・職場PC）**：Claude が \`D:\\7.claude_projects\\11_臨床疑問参照アプリ\\取込用\\\` にファイルを置きます。この画面で「ファイルを選択」→ そのファイル。
+
+**iPad・Android**：Claude が \`@@@CQ\` で始まるテキストを出します。それをコピーして、上の欄に貼り付けてください。`)}</div></details>`;
+}
+function vSettings(){
+  const c=getCfg();
+  const own=lsGet(LS.cfg)||{};
+  return `<div class="crumb"><a data-go="#/">ホーム</a> ／ 設定</div>
+  <div class="card"><h2 style="margin-top:0">GitHub 接続</h2>
+  <p class="muted">データはメモ帖と同じ非公開リポジトリ（memo-data）の <code>${DATA_PATH}</code> に入ります。メモ帖と同じアドレス（th64-ops.github.io）で開いた端末では、メモ帖の設定がそのまま使われます。</p>
+  <p>今の状態：<b>${c.src==='own'?'この画面で入れた設定を使用':c.src==='memo'?'メモ帖の設定を使用中':'未設定（この端末の中だけに保存）'}</b>${c.owner?'（'+esc(c.owner)+'/'+esc(c.repo)+'）':''}</p>
+  <details ${c.src==='none'?'open':''}><summary>自分で入れる（メモ帖と別の場所で開くとき）</summary>
+  <label class="fl">ユーザー名</label><input type="text" id="s_o" value="${esc(own.owner||'')}">
+  <label class="fl">リポジトリ</label><input type="text" id="s_r" value="${esc(own.repo||'memo-data')}">
+  <label class="fl">トークン（github_pat_…）</label><input type="password" id="s_k" style="width:100%" value="${esc(own.token||'')}">
+  <div class="row" style="margin-top:8px"><button class="btn p" id="s_save">保存して接続</button><button class="btn" id="s_clr">この画面の設定を消す</button></div></details>
+  </div>
+  <div class="card"><h2 style="margin-top:0">書き出し・バックアップ</h2>
+  <div class="row"><button class="btn" id="x_imp">全件を取り込み形式（.md）で保存</button><button class="btn" id="x_json">JSONで保存</button>
+  <label class="btn">JSONから戻す<input type="file" id="x_rest" accept=".json" hidden></label></div>
+  <p class="muted">全件 ${live().length}件／端末内の保存量 約${Math.round(JSON.stringify(db).length/1024)}KB</p></div>
+  <p class="muted">臨床疑問ノート ${VER}。患者の個人情報（氏名・ID・生年月日・実際の日付）は入れないでください。</p>`;
+}
+
+function render(){
+  const r=route();let h;
+  if(r.a==='f')h=vField(r.b);
+  else if(r.a==='e')h=vEntry(r.b);
+  else if(r.a==='l')h=vList(r.b||'all');
+  else if(r.a==='t')h=vTag(r.b);
+  else if(r.a==='imp')h=vImport();
+  else if(r.a==='set')h=vSettings();
+  else h=vHome();
+  const sy=window.scrollY;
+  $('#main').innerHTML=h;
+  bind(r);
+  if(render.keep)window.scrollTo(0,sy);render.keep=false;
+  if(r.a===''&&ST.q)showQ();
+  const so=$('#sort');if(so)so.value=ST.sort||'new';
+}
+function showQ(){
+  const q=ST.q.trim();const res=$('#qres'),hb=$('#homeBody');if(!res)return;
+  if(!q){res.innerHTML='';hb.hidden=false;return}
+  hb.hidden=true;const L=search(q,live()).sort((a,b)=>(b.created||'').localeCompare(a.created||''));
+  res.innerHTML=`<h2>検索結果 ${L.length}件</h2>`+listHTML(L,q);
+}
+function bind(r){
+  const q=$('#q');if(q){q.oninput=()=>{ST.q=q.value;showQ()};if(ST.q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}}
+  const so=$('#sort');if(so)so.onchange=()=>{ST.sort=so.value;render.keep=true;render()};
+  if(r.a==='e'){
+    const e=db.entries.find(x=>x.id===r.b);if(!e)return;
+    const b=id=>$(id);
+    if(b('#cpBody'))b('#cpBody').onclick=()=>copyText('# '+e.title+'\n作成日：'+e.created+'／最終確認日：'+(e.checked||'')+'\n\n'+e.body);
+    if(b('#cpImp'))b('#cpImp').onclick=()=>copyText(toImportText(e));
+    if(b('#edBtn'))b('#edBtn').onclick=()=>{ST.edit=e.id;render()};
+    if(b('#delBtn'))b('#delBtn').onclick=()=>{if(!confirm('「'+e.title+'」を削除しますか？（全端末から消えます）'))return;e.deleted=true;e.updatedAt=now();commit();go('#/f/'+encodeURIComponent(e.fields[0]))};
+    if(b('#e_today'))b('#e_today').onclick=()=>{b('#e_k').value=today()};
+    if(b('#e_cancel'))b('#e_cancel').onclick=()=>{ST.edit=null;render()};
+    if(b('#e_save'))b('#e_save').onclick=()=>{
+      const p={title:b('#e_t').value.trim()||e.title,fields:b('#e_f').value.split(/[,、，]/).map(normField).filter(Boolean),created:b('#e_c').value||e.created,checked:b('#e_k').value,conf:b('#e_cf').value,tags:b('#e_g').value.split(/[,、，]/).map(s=>s.trim().replace(/^#/,'')).filter(Boolean),chat:b('#e_ch').value.trim(),url:b('#e_u').value.trim(),body:b('#e_b').value};
+      const nid=mkId(p.created,p.title);
+      if(nid!==e.id){e.deleted=true;e.updatedAt=now();if(db.marks[e.id])db.marks[nid]=Object.assign({},db.marks[e.id],{at:now()})}
+      upsert(p);if(nid===e.id){}ST.edit=null;commit();go('#/e/'+nid);render();toast('保存しました');
+    };
+  }
+  if(r.a==='imp'){
+    const read=txt=>{ST.imp=parseImport(txt);render()};
+    $('#impF').onchange=async ev=>{let t='';for(const f of ev.target.files)t+='\n'+await f.text();read(t)};
+    $('#impRead').onclick=()=>read($('#impT').value);
+    $('#impPaste').onclick=async()=>{try{const t=await navigator.clipboard.readText();$('#impT').value=t;read(t)}catch(e){toast('貼り付けできません。欄に長押しで貼り付けてください')}};
+    const g=$('#impGo');if(g)g.onclick=()=>{
+      const on=$$('.impOn').filter(x=>x.checked).map(x=>+x.dataset.i);let n=0,o=0;
+      for(const i of on){upsert(ST.imp[i])==='new'?n++:o++}
+      ST.imp=null;commit();toast(`新規 ${n}件・上書き ${o}件を取り込みました`);go('#/');
+    };
+    const x=$('#impX');if(x)x.onclick=()=>{ST.imp=null;render()};
+  }
+  if(r.a==='set'){
+    $('#s_save').onclick=()=>{lsSet(LS.cfg,{owner:$('#s_o').value.trim(),repo:$('#s_r').value.trim()||'memo-data',token:$('#s_k').value.trim()});cfg=getCfg();sync();render()};
+    $('#s_clr').onclick=()=>{localStorage.removeItem(LS.cfg);cfg=getCfg();render();sync()};
+    $('#x_imp').onclick=()=>download('臨床疑問ノート_全件_'+today()+'.md',live().map(toImportText).join('\n'));
+    $('#x_json').onclick=()=>download('臨床疑問ノート_'+today()+'.json',JSON.stringify(db,null,1),'application/json');
+    $('#x_rest').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;try{const j=JSON.parse(await f.text());if(!Array.isArray(j.entries))throw 0;db=mergeDB(j,db);commit();toast('戻しました（今のデータと合わせました）');render()}catch(e){toast('読めないファイルです')}};
+  }
+}
+document.addEventListener('click',ev=>{
+  const t=ev.target;
+  const gEl=t.closest('[data-go]');if(gEl){ev.preventDefault();if(gEl.dataset.go==='#/'){ST.q=''}go(gEl.dataset.go);return}
+  const o=t.closest('[data-open]');if(o&&!t.closest('[data-tag]')){go('#/e/'+o.dataset.open);return}
+  const tg=t.closest('[data-tag]');if(tg){ev.stopPropagation();go('#/t/'+encodeURIComponent(tg.dataset.tag));return}
+  const fl=t.closest('[data-flag]');if(fl){const id=fl.dataset.flag;setMark(id,'recheck',!mark(id).recheck);render.keep=true;render();return}
+  const lf=t.closest('[data-lf]');if(lf){ST.lf=lf.dataset.lf;render.keep=true;render();return}
+});
+document.addEventListener('change',ev=>{
+  const t=ev.target;if(t.dataset&&t.dataset.read){setMark(t.dataset.read,'read',t.checked);render.keep=true;render()}
+});
+$('#home').onclick=()=>{ST.q='';go('#/')};
+$('#syncBtn').onclick=()=>sync();
+window.addEventListener('hashchange',()=>{const r=route();if(r.a!=='e')ST.edit=null;if(r.a==='f'||r.a==='t')ST.lf='all';if(r.a==='l')ST.lf=r.b||'all';render();window.scrollTo(0,0)});
+window.addEventListener('focus',()=>{if(configured()&&!syncing)sync()});
+{const r=route();if(r.a==='l')ST.lf=r.b||'all'}
+render();
+if(configured())sync();else setStatus('off');
+</script>
+</body>
+</html>
